@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IRONFORGE — Gym Management</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+<div id="login-page">
+  <div class="login-left">
+    <div class="login-grid"></div>
+    <div class="login-brand">
+      <div class="brand-logo">
+        <div class="brand-icon"><i class="fas fa-dumbbell"></i></div>
+        <div class="brand-name">IRONFORGE</div>
+      </div>
+      <div class="login-tagline">
+        Train Harder.<br><span>Manage Smarter.</span>
+      </div>
+      <div class="login-sub">
+        The complete gym management platform for members, coaches, and administrators.
+      </div>
+    </div>
+    <div class="login-stats">
+      <div class="stat-item">
+        <div class="stat-num">1.2K</div>
+        <div class="stat-label">Members</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">48</div>
+        <div class="stat-label">Coaches</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">320</div>
+        <div class="stat-label">Sessions/mo</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-right">
+    <div class="login-card">
+      <div class="login-title">Welcome back</div>
+      <div class="login-hint">Sign in to your portal</div>
+
+      <div class="role-tabs">
+        <button class="role-tab active" onclick="selectRole('member',this)">
+          <i class="fas fa-user"></i> Member
+        </button>
+        <button class="role-tab" onclick="selectRole('coach',this)">
+          <i class="fas fa-user-tie"></i> Coach
+        </button>
+        <button class="role-tab" onclick="selectRole('admin',this)">
+          <i class="fas fa-shield-alt"></i> Admin
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-control" id="login-email" placeholder="you@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" id="login-password" placeholder="••••••••">
+      </div>
+      <button class="btn-login" onclick="doLogin()">Sign In →</button>
+
+      <div class="demo-creds">
+        <div class="demo-creds-title">⚡ Demo Credentials</div>
+        <div class="demo-cred-row"><span>Member</span><span>john@example.com / any pass</span></div>
+        <div class="demo-cred-row"><span>Coach</span><span>sarah@example.com / any pass</span></div>
+        <div class="demo-cred-row"><span>Admin</span><span>admin@example.com / any pass</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
