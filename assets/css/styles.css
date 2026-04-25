@@ -1315,8 +1315,35 @@
 
     /* ── RESPONSIVE ── */
     @media (max-width: 900px) {
-      #login-page { grid-template-columns: 1fr; }
-      .login-left { display: none; }
+      #login-page {
+        grid-template-columns: 1fr;
+        position: relative;
+      }
+      .login-left {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: min(420px, calc(100% - 6rem));
+        transform: translateX(-50%);
+        min-height: 0;
+        padding: 1rem 0 0;
+        background: transparent;
+        z-index: 5;
+        pointer-events: none;
+      }
+      .login-left::before,
+      .login-left::after,
+      .login-grid,
+      .login-tagline,
+      .login-sub,
+      .login-stats {
+        display: none;
+      }
+      .login-brand { position: static; }
+      .brand-logo { margin-bottom: 0; }
+      .brand-name { font-size: 1.5rem; letter-spacing: 2px; }
+      .login-right { padding-top: 5rem; }
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
       .checkin-grid { grid-template-columns: 1fr; }
       .checkin-mode-toggle { width: 100%; }
