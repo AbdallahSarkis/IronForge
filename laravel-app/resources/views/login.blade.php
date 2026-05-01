@@ -52,6 +52,12 @@
         </div>
       @endif
 
+      @if (session('status'))
+        <div class="alert" style="margin-bottom:14px;padding:10px 12px;border-radius:10px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4);color:#bbf7d0;font-size:0.85rem;">
+          {{ session('status') }}
+        </div>
+      @endif
+
       <form id="login-form" method="POST" action="/login">
         @csrf
 
@@ -74,9 +80,21 @@
         <div class="form-group">
           <label class="form-label">Password</label>
           <input type="password" class="form-control" id="login-password" name="password" placeholder="••••••••" required>
+          <div style="margin-top:8px;text-align:right;">
+            <a href="/forgot-password.html" style="font-size:0.8rem;color:var(--accent);text-decoration:none;">Forgot your password?</a>
+          </div>
         </div>
         <button type="button" class="btn-login" onclick="doLogin()">Sign In →</button>
+
+        <a href="/auth/google" class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:10px;text-decoration:none;">
+          <i class="fab fa-google"></i> Continue with Google
+        </a>
       </form>
+
+      <div style="margin-top:12px;text-align:center;font-size:0.85rem;color:var(--muted);">
+        New here?
+        <a href="/signup.html" style="color:var(--accent);font-weight:600;text-decoration:none;">Create an account</a>
+      </div>
 
       <div class="demo-creds">
         <div class="demo-creds-title">⚡ Demo Credentials</div>

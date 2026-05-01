@@ -25,7 +25,7 @@
       <div class="user-avatar" id="user-avatar">JD</div>
       <div class="user-info">
         <div class="user-name" id="user-name-label">John Doe</div>
-        <div class="user-role role-member" id="user-role-badge">Member</div>
+        <div class="user-role role-admin" id="user-role-badge">Admin</div>
       </div>
     </div>
 

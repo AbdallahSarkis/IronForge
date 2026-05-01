@@ -7,7 +7,7 @@ const USERS = {
   'admin@example.com': { name:'Admin User', role:'admin', initials:'AU', gradient:'135deg,#f97316,#ef4444' },
 };
 
-const PRODUCTS = [
+let PRODUCTS = [
   { id:'p1', name:'Whey Protein 5lb', category:'supplement', price:49.99, stock:50, image:'https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=400', description:'Premium whey protein isolate for muscle recovery' },
   { id:'p2', name:'Pre-Workout Boost', category:'supplement', price:34.99, stock:30, image:'https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=400', description:'Energy and focus enhancement formula' },
   { id:'p3', name:'Resistance Bands Set', category:'equipment', price:24.99, stock:75, image:'https://images.unsplash.com/photo-1598289431512-b97b0917affc?w=400', description:'Professional grade resistance bands - 5 levels' },
@@ -16,13 +16,13 @@ const PRODUCTS = [
   { id:'p6', name:'Kettlebell 20kg', category:'equipment', price:79.99, stock:15, image:'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400', description:'Cast iron kettlebell with comfort grip' },
 ];
 
-const COACHES = [
+let COACHES = [
   { id:'c1', name:'Sarah Johnson', specialty:'HIIT & Strength', clients:2, gradient:'135deg,#4facfe,#a855f7', initials:'SJ', sessions:48, rating:4.9 },
   { id:'c2', name:'Mike Davis', specialty:'Yoga & Flexibility', clients:5, gradient:'135deg,#22c55e,#16a34a', initials:'MD', sessions:62, rating:4.8 },
   { id:'c3', name:'Alex Rivera', specialty:'Bodybuilding', clients:3, gradient:'135deg,#f97316,#ef4444', initials:'AR', sessions:35, rating:4.7 },
 ];
 
-const WORKOUTS = [
+let WORKOUTS = [
   { id:1, name:'HIIT Training', coach:'Sarah Johnson', date:'2026-04-06', time:'10:00 AM', status:'Scheduled', exercises:[
     { name:'Burpees', sets:3, reps:10, intensity:'High', muscles:'Full body', description:'A powerful full-body plyometric movement.' },
     { name:'Mountain Climbers', sets:3, reps:20, intensity:'High', muscles:'Core, shoulders', description:'Explosive core and cardio exercise in plank.' },
@@ -40,9 +40,15 @@ const WORKOUTS = [
   ]},
 ];
 
-const CLIENTS = [
+let CLIENTS = [
   { id:'1', name:'John Doe', email:'john@example.com', goal:'Build muscle mass and increase strength', initials:'JD', gradient:'135deg,#6366f1,#8b5cf6', workouts:[WORKOUTS[0], WORKOUTS[1]] },
   { id:'4', name:'Emma Wilson', email:'emma@example.com', goal:'Weight loss and cardio endurance', initials:'EW', gradient:'135deg,#ec4899,#f97316', workouts:[WORKOUTS[2]] },
+];
+
+let NEARBY_GYMS = [
+  { id:'g1', name:'IronForge Downtown', distance:'0.8 km', location:'Central District', open:'Open until 11:00 PM', amenities:['Weights','Cardio','Sauna'], latitude:25.2048, longitude:55.2708 },
+  { id:'g2', name:'FlexHub Riverside', distance:'2.1 km', location:'Riverside Avenue', open:'Open 24/7', amenities:['HIIT Zone','Pool','Lockers'], latitude:25.2190, longitude:55.2984 },
+  { id:'g3', name:'Peak Performance West', distance:'3.4 km', location:'West End', open:'Open until 10:00 PM', amenities:['CrossFit','Stretch Studio','Parking'], latitude:25.1765, longitude:55.2362 },
 ];
 
 const EXERCISE_IMAGES = {
@@ -122,16 +128,24 @@ function renderMemberLivePresence() {
 }
 
 const PAGE_URLS = {
+  'user-dashboard':'dashboard.html',
+  'user-profile':'profile.html',
+  'user-explore':'explore.html',
+  'user-near-gyms':'near-gyms.html',
+  'user-near-coaches':'near-coaches.html',
   'member-dashboard':'dashboard.html',
+  'member-profile':'profile.html',
   'member-schedule':'schedule.html',
   'member-checkin':'checkin.html',
   'member-workouts':'workouts.html',
   'member-coaches':'coaches.html',
   'member-supplements':'supplements.html',
   'coach-dashboard':'dashboard.html',
+  'coach-profile':'profile.html',
   'coach-clients':'clients.html',
   'coach-workouts':'workouts.html',
   'admin-dashboard':'dashboard.html',
+  'admin-profile':'profile.html',
   'admin-coaches':'coaches.html',
   'admin-members':'members.html',
   'admin-inventory':'inventory.html',
@@ -142,7 +156,7 @@ function getCurrentFolderPath() {
 }
 
 function getAssetRootPath() {
-  return location.pathname.includes('/member/') || location.pathname.includes('/coach/') || location.pathname.includes('/admin/') ? '../' : '';
+  return location.pathname.includes('/member/') || location.pathname.includes('/coach/') || location.pathname.includes('/admin/') || location.pathname.includes('/user/') ? '../' : '';
 }
 
 function getCurrentPageId() {
@@ -183,6 +197,7 @@ function doLogout() {
   window.location.href = '/logout';
 }
 
+
 async function getSessionUser() {
   try {
     const response = await fetch('/session-user', {
@@ -199,6 +214,28 @@ async function getSessionUser() {
   }
 }
 
+async function loadAppData() {
+  try {
+    const response = await fetch('/app-data', {
+      headers: {
+        Accept: 'application/json',
+      },
+      credentials: 'same-origin',
+    });
+
+    if (!response.ok) return;
+
+    const payload = await response.json();
+    if (Array.isArray(payload.products)) PRODUCTS = payload.products;
+    if (Array.isArray(payload.coaches)) COACHES = payload.coaches;
+    if (Array.isArray(payload.workouts)) WORKOUTS = payload.workouts;
+    if (Array.isArray(payload.clients)) CLIENTS = payload.clients;
+    if (Array.isArray(payload.gyms)) NEARBY_GYMS = payload.gyms;
+  } catch (error) {
+    // Keep demo defaults if backend data is unavailable.
+  }
+}
+
 /* ═══════════════════════════════════════════════════════
    APP INIT
 ═══════════════════════════════════════════════════════ */
@@ -212,10 +249,12 @@ async function initApp() {
   }
 
   const currentSection = location.pathname.split('/')[1];
-  if (['member', 'coach', 'admin'].includes(currentSection) && currentSection !== currentUser.role) {
+  if (['user', 'member', 'coach', 'admin'].includes(currentSection) && currentSection !== currentUser.role) {
     window.location.href = `/${currentUser.role}/dashboard.html`;
     return;
   }
+
+  await loadAppData();
 
   appEl.classList.add('active');
 
@@ -232,7 +271,7 @@ async function initApp() {
 
   const topBadge = document.getElementById('topbar-role-badge');
   if (topBadge) {
-    const badgeCls = { member:'badge-green', coach:'badge-blue', admin:'badge-orange' };
+    const badgeCls = { user:'badge-cyan', member:'badge-green', coach:'badge-blue', admin:'badge-orange' };
     topBadge.textContent = currentUser.role.toUpperCase();
     topBadge.className = `badge topbar-badge ${badgeCls[currentUser.role]}`;
   }
@@ -253,12 +292,20 @@ async function initApp() {
 }
 
 function defaultPage() {
-  return { member:'member-dashboard', coach:'coach-dashboard', admin:'admin-dashboard' }[currentUser.role];
+  return { user:'user-dashboard', member:'member-dashboard', coach:'coach-dashboard', admin:'admin-dashboard' }[currentUser.role];
 }
 
 const NAV_CONFIG = {
+  user: [
+    { icon:'fas fa-gauge', label:'Dashboard', page:'user-dashboard' },
+    { icon:'fas fa-user', label:'Profile', page:'user-profile' },
+    { icon:'fas fa-compass', label:'Explore', page:'user-explore' },
+    { icon:'fas fa-dumbbell', label:'Near Gyms', page:'user-near-gyms' },
+    { icon:'fas fa-user-tie', label:'Near Coaches', page:'user-near-coaches' },
+  ],
   member: [
     { icon:'fas fa-gauge', label:'Dashboard', page:'member-dashboard' },
+    { icon:'fas fa-user', label:'Profile', page:'member-profile' },
     { icon:'fas fa-calendar-week', label:'Schedule', page:'member-schedule' },
     { icon:'fas fa-qrcode', label:'Check-In', page:'member-checkin' },
     { icon:'fas fa-dumbbell', label:'Workouts', page:'member-workouts' },
@@ -267,11 +314,13 @@ const NAV_CONFIG = {
   ],
   coach: [
     { icon:'fas fa-gauge', label:'Dashboard', page:'coach-dashboard' },
+    { icon:'fas fa-user', label:'Profile', page:'coach-profile' },
     { icon:'fas fa-users', label:'Clients', page:'coach-clients' },
     { icon:'fas fa-dumbbell', label:'Workouts', page:'coach-workouts' },
   ],
   admin: [
     { icon:'fas fa-gauge', label:'Dashboard', page:'admin-dashboard' },
+    { icon:'fas fa-user', label:'Profile', page:'admin-profile' },
     { icon:'fas fa-user-tie', label:'Coaches', page:'admin-coaches' },
     { icon:'fas fa-users', label:'Members', page:'admin-members' },
     { icon:'fas fa-boxes', label:'Inventory', page:'admin-inventory' },
@@ -306,9 +355,10 @@ function switchPage(pageId) {
     if (url) window.location.href = `${getCurrentFolderPath()}${url}`;
   }
   const titles = {
-    'member-dashboard':'Dashboard','member-schedule':'Schedule','member-checkin':'Check-In','member-workouts':'Workouts','member-coaches':'Coaches','member-supplements':'Shop',
-    'coach-dashboard':'Dashboard','coach-clients':'Clients','coach-workouts':'Workouts',
-    'admin-dashboard':'Dashboard','admin-coaches':'Coaches','admin-members':'Members','admin-inventory':'Inventory',
+    'user-dashboard':'Dashboard','user-profile':'Profile','user-explore':'Explore','user-near-gyms':'Near Gyms','user-near-coaches':'Near Coaches',
+    'member-dashboard':'Dashboard','member-profile':'Profile','member-schedule':'Schedule','member-checkin':'Check-In','member-workouts':'Workouts','member-coaches':'Coaches','member-supplements':'Shop',
+    'coach-dashboard':'Dashboard','coach-profile':'Profile','coach-clients':'Clients','coach-workouts':'Workouts',
+    'admin-dashboard':'Dashboard','admin-profile':'Profile','admin-coaches':'Coaches','admin-members':'Members','admin-inventory':'Inventory',
   };
   const titleEl = document.getElementById('topbar-title');
   if (titleEl) titleEl.textContent = titles[pageId] || 'Page';
@@ -391,6 +441,7 @@ function setupResponsiveNavigation() {
    RENDER CONTENT
 ═══════════════════════════════════════════════════════ */
 function renderAllContent() {
+  renderNearbyGyms();
   initMemberCheckIn();
   renderMemberLivePresence();
   renderMemberSchedule();
@@ -400,6 +451,164 @@ function renderAllContent() {
   renderCoachClients();
   renderCoachWorkouts();
   renderAdminInventory();
+}
+
+function renderNearbyGyms() {
+  const el = document.getElementById('user-near-gyms-list');
+  if (!el) return;
+
+  const gymsToRender = buildNearGymsForCurrentUser();
+
+  if (!gymsToRender.length) {
+    el.innerHTML = `
+      <div class="panel">
+        <div class="panel-body" style="color:var(--muted);">No gyms available yet. Ask admin to complete gym profile details.</div>
+      </div>
+    `;
+    return;
+  }
+
+  el.innerHTML = gymsToRender.map(gym => `
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">${gym.name}</div>
+        <span class="badge badge-cyan">${gym.distanceLabel}</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+          <div>
+            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:6px;"><i class="fas fa-location-dot" style="margin-right:6px;color:var(--accent);"></i>${gym.location}</div>
+            <div style="font-size:0.85rem;color:var(--muted);"><i class="fas fa-clock" style="margin-right:6px;color:var(--accent);"></i>${gym.open}</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="openGymDirections('${gym.id}')"><i class="fas fa-route"></i> Directions</button>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          ${gym.amenities.map(item => `<span class="badge badge-muted">${item}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getUserGeoOrigin() {
+  if (!currentUser) return null;
+
+  const latitude = Number(currentUser.location_latitude);
+  const longitude = Number(currentUser.location_longitude);
+
+  if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+    return null;
+  }
+
+  return { latitude, longitude };
+}
+
+function haversineDistanceKm(fromLat, fromLng, toLat, toLng) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+
+  const deltaLat = toRad(toLat - fromLat);
+  const deltaLng = toRad(toLng - fromLng);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(toRad(fromLat)) * Math.cos(toRad(toLat)) * Math.sin(deltaLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusKm * c;
+}
+
+function buildNearGymsForCurrentUser() {
+  const origin = getUserGeoOrigin();
+
+  return [...NEARBY_GYMS]
+    .filter((gym) => gym && gym.name)
+    .map((gym) => {
+      const latitude = Number(gym.latitude);
+      const longitude = Number(gym.longitude);
+      const hasCoordinates = !Number.isNaN(latitude) && !Number.isNaN(longitude);
+
+      if (!origin || !hasCoordinates) {
+        return {
+          ...gym,
+          distanceKm: Number.POSITIVE_INFINITY,
+          distanceLabel: gym.distance || 'Distance unavailable',
+        };
+      }
+
+      const distanceKm = haversineDistanceKm(origin.latitude, origin.longitude, latitude, longitude);
+
+      return {
+        ...gym,
+        distanceKm,
+        distanceLabel: `${distanceKm.toFixed(1)} km`,
+      };
+    })
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}
+
+function buildGymDestination(gym) {
+  if (gym.latitude != null && gym.longitude != null) {
+    return `${gym.latitude},${gym.longitude}`;
+  }
+
+  return `${gym.name}, ${gym.location}`;
+}
+
+function getSavedUserOrigin() {
+  if (!currentUser) return null;
+  const lat = Number(currentUser.location_latitude);
+  const lng = Number(currentUser.location_longitude);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+  return { lat, lng };
+}
+
+function openMapsDirections(origin, destination) {
+  const originParam = origin ? `${origin.lat},${origin.lng}` : '';
+  const params = new URLSearchParams({
+    api: '1',
+    destination,
+    travelmode: 'driving',
+  });
+
+  if (originParam) params.set('origin', originParam);
+
+  window.location.href = `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function openGymDirections(gymId) {
+  const gym = NEARBY_GYMS.find(item => item.id === gymId);
+  if (!gym) {
+    showToast('Gym location not found');
+    return;
+  }
+
+  const destination = buildGymDestination(gym);
+  const savedOrigin = getSavedUserOrigin();
+
+  if (!navigator.geolocation) {
+    openMapsDirections(savedOrigin, destination);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition((position) => {
+    const liveOrigin = {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+    };
+    openMapsDirections(liveOrigin, destination);
+  }, () => {
+    if (savedOrigin) {
+      showToast('Using saved profile location for directions');
+      openMapsDirections(savedOrigin, destination);
+      return;
+    }
+
+    showToast('Location permission denied, opening destination only');
+    openMapsDirections(null, destination);
+  }, {
+    enableHighAccuracy: true,
+    timeout: 8000,
+    maximumAge: 0,
+  });
 }
 
 function initMemberCheckIn() {
@@ -635,7 +844,6 @@ function openExerciseDetail(workoutId, exerciseIndex) {
 function renderCoachesGrid() {
   const el = document.getElementById('coaches-grid');
   if (!el) return;
-  const colors = ['#4facfe','#22c55e','#f97316','#a855f7','#e8ff47'];
   el.innerHTML = COACHES.map((c,i) => `
     <div class="coach-card">
       <div class="coach-avatar" style="background:linear-gradient(${c.gradient});">${c.initials}</div>
@@ -655,9 +863,56 @@ function renderCoachesGrid() {
           <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;">Clients</div>
         </div>
       </div>
-      <button class="btn btn-secondary" style="width:100%;justify-content:center;"><i class="fas fa-envelope"></i> Message</button>
+      <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="openCoachContactModal('${c.id}')"><i class="fas fa-envelope"></i> Message Coach</button>
     </div>
   `).join('');
+}
+
+function sanitizePhoneNumber(number) {
+  return String(number || '').replace(/[^\d+]/g, '');
+}
+
+function openCoachContactModal(coachId) {
+  const coach = COACHES.find(item => String(item.id) === String(coachId));
+  if (!coach) {
+    showToast('Coach contact not available');
+    return;
+  }
+
+  const whatsappNumber = sanitizePhoneNumber(coach.whatsapp_number || coach.phone_number);
+  const phoneNumber = sanitizePhoneNumber(coach.phone_number);
+  const titleEl = document.getElementById('coach-contact-modal-title');
+  const bodyEl = document.getElementById('coach-contact-modal-body');
+  if (!titleEl || !bodyEl) return;
+
+  titleEl.textContent = `Contact ${coach.name}`;
+  bodyEl.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="color:var(--muted);font-size:0.92rem;">Choose how you want to contact ${coach.name}.</div>
+      <a class="btn btn-primary" style="justify-content:center;text-decoration:none;" href="https://wa.me/${encodeURIComponent(whatsappNumber)}?text=${encodeURIComponent(`Hi ${coach.name}, I would like to know more about your coaching services on IRONFORGE.`)}" target="_blank" rel="noopener noreferrer">
+        <i class="fab fa-whatsapp"></i> WhatsApp
+      </a>
+      <button class="btn btn-secondary" style="justify-content:center;" onclick="sendCoachInAppMessage('${String(coach.id)}')">
+        <i class="fas fa-comments"></i> Via Application
+      </button>
+      <a class="btn btn-secondary" style="justify-content:center;text-decoration:none;" href="tel:${phoneNumber}">
+        <i class="fas fa-phone"></i> Call ${coach.phone_number || 'Coach'}
+      </a>
+    </div>
+  `;
+
+  openModal('coach-contact-modal');
+}
+
+function sendCoachInAppMessage(coachId) {
+  const coach = COACHES.find(item => String(item.id) === String(coachId));
+  if (!coach) {
+    showToast('Coach contact not available');
+    return;
+  }
+
+  closeModal('coach-contact-modal');
+  showToast(`Message request sent to ${coach.name} in app`);
 }
 
 function renderSupplements() {
@@ -789,7 +1044,8 @@ function openWorkoutModal(id) {
 }
 
 function openClientModal(id) {
-  const c = CLIENTS.find(x => x.id === id);
+  const key = String(id);
+  const c = CLIENTS.find(x => String(x.id) === key);
   if (!c) return;
   document.getElementById('client-modal-title').textContent = c.name;
   document.getElementById('client-modal-body').innerHTML = `
@@ -849,22 +1105,25 @@ function toggleCart() {
 }
 
 function addToCart(productId) {
-  const product = PRODUCTS.find(p => p.id === productId);
+  const key = String(productId);
+  const product = PRODUCTS.find(p => String(p.id) === key);
   if (!product) return;
-  const existing = cart.find(i => i.id === productId);
+  const existing = cart.find(i => String(i.id) === key);
   if (existing) { existing.qty++; }
-  else { cart.push({ ...product, qty: 1 }); }
+  else { cart.push({ ...product, id: key, qty: 1 }); }
   updateCartUI();
   showToast(`${product.name} added to cart`);
 }
 
 function removeFromCart(productId) {
-  cart = cart.filter(i => i.id !== productId);
+  const key = String(productId);
+  cart = cart.filter(i => String(i.id) !== key);
   updateCartUI();
 }
 
 function changeQty(productId, delta) {
-  const item = cart.find(i => i.id === productId);
+  const key = String(productId);
+  const item = cart.find(i => String(i.id) === key);
   if (!item) return;
   item.qty += delta;
   if (item.qty <= 0) removeFromCart(productId);

@@ -25,7 +25,7 @@
       <div class="user-avatar" id="user-avatar">JD</div>
       <div class="user-info">
         <div class="user-name" id="user-name-label">John Doe</div>
-        <div class="user-role role-coach" id="user-role-badge">Coach</div>
+        <div class="user-role role-user" id="user-role-badge">User</div>
       </div>
     </div>
 
@@ -42,7 +42,7 @@
   </nav>
   <div class="main" id="main">
     <div class="topbar">
-      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-title" id="topbar-title">Near Gyms</div>
       <div class="topbar-right">
         <span class="topbar-badge badge-muted badge" id="topbar-role-badge">DEMO</span>
         <button class="btn btn-secondary btn-sm" id="cart-btn" onclick="toggleCart()" style="display:none;">
@@ -51,67 +51,12 @@
       </div>
     </div>
     <div class="page-content">
-<div class="page" id="page-coach-dashboard">
+      <div class="page" id="page-user-near-gyms">
         <div class="section-header">
-          <div class="section-title">Coach Dashboard</div>
-          <div class="section-sub">Manage your clients and training programs</div>
+          <div class="section-title">Gyms Near You</div>
+          <div class="section-sub">Choose a gym by distance, availability, and amenities.</div>
         </div>
-        <div class="stats-grid">
-          <div class="stat-card blue">
-            <div class="stat-card-top"><div class="stat-card-icon"><i class="fas fa-users"></i></div></div>
-            <div class="stat-card-val">2</div>
-            <div class="stat-card-label">Active Clients</div>
-          </div>
-          <div class="stat-card accent">
-            <div class="stat-card-top"><div class="stat-card-icon"><i class="fas fa-dumbbell"></i></div></div>
-            <div class="stat-card-val">3</div>
-            <div class="stat-card-label">Workouts Assigned</div>
-          </div>
-          <div class="stat-card orange">
-            <div class="stat-card-top"><div class="stat-card-icon"><i class="fas fa-calendar"></i></div></div>
-            <div class="stat-card-val">5</div>
-            <div class="stat-card-label">Upcoming Sessions</div>
-          </div>
-          <div class="stat-card green">
-            <div class="stat-card-top"><div class="stat-card-icon"><i class="fas fa-star"></i></div></div>
-            <div class="stat-card-val">4.9</div>
-            <div class="stat-card-label">Average Rating</div>
-          </div>
-        </div>
-        <div class="grid-2">
-          <div class="panel">
-            <div class="panel-header"><div class="panel-title">My Clients</div></div>
-            <div class="list-item" onclick="openClientModal('1')" style="cursor:pointer;">
-              <div style="display:flex;align-items:center;gap:12px;">
-                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;">JD</div>
-                <div>
-                  <div style="font-weight:600;">John Doe</div>
-                  <div style="font-size:0.8rem;color:var(--muted);">Build muscle mass</div>
-                </div>
-              </div>
-              <i class="fas fa-chevron-right" style="color:var(--muted);font-size:0.8rem;"></i>
-            </div>
-            <div class="list-item" onclick="openClientModal('4')" style="cursor:pointer;">
-              <div style="display:flex;align-items:center;gap:12px;">
-                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#f97316);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;">EW</div>
-                <div>
-                  <div style="font-weight:600;">Emma Wilson</div>
-                  <div style="font-size:0.8rem;color:var(--muted);">Weight loss & cardio</div>
-                </div>
-              </div>
-              <i class="fas fa-chevron-right" style="color:var(--muted);font-size:0.8rem;"></i>
-            </div>
-          </div>
-          <div class="panel">
-            <div class="panel-header"><div class="panel-title">Quick Actions</div></div>
-            <div class="panel-body">
-              <div style="display:flex;flex-direction:column;gap:10px;">
-                <button class="btn btn-primary" onclick="switchPage('coach-workouts')"><i class="fas fa-plus"></i> Create Workout Plan</button>
-                <button class="btn btn-secondary" onclick="switchPage('coach-clients')"><i class="fas fa-users"></i> View All Clients</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div id="user-near-gyms-list" style="display:grid;gap:14px;"></div>
       </div>
     </div>
   </div>
@@ -173,5 +118,4 @@
 </div>
 <script src="../assets/js/app.js"></script>
 </body>
-</html>
 </html>
