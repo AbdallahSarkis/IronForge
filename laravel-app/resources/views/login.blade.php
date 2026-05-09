@@ -69,7 +69,10 @@
             <i class="fas fa-user-tie"></i> Coach
           </button>
           <button type="button" class="role-tab" onclick="selectRole('admin',this)">
-            <i class="fas fa-shield-alt"></i> Admin
+            <i class="fas fa-dumbbell"></i> Gym
+          </button>
+          <button type="button" class="role-tab" onclick="selectRole('super-admin',this)">
+            <i class="fas fa-crown"></i> Super Admin
           </button>
         </div>
 
@@ -100,7 +103,9 @@
         <div class="demo-creds-title">⚡ Demo Credentials</div>
         <div class="demo-cred-row"><span>Member</span><span>john@example.com / password</span></div>
         <div class="demo-cred-row"><span>Coach</span><span>sarah@example.com / password</span></div>
-        <div class="demo-cred-row"><span>Admin</span><span>admin@example.com / password</span></div>
+        <div class="demo-cred-row"><span>Nutrition Specialist</span><span>nutrition@example.com / password</span></div>
+        <div class="demo-cred-row"><span>Gym</span><span>admin@example.com / password</span></div>
+        <div class="demo-cred-row"><span>Super Admin</span><span>superadmin@example.com / password</span></div>
       </div>
     </div>
   </div>

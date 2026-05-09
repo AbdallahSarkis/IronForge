@@ -4,7 +4,7 @@
 const USERS = {
   'john@example.com':  { name:'John Doe',   role:'member', initials:'JD', gradient:'135deg,#22c55e,#16a34a' },
   'sarah@example.com': { name:'Sarah Johnson', role:'coach', initials:'SJ', gradient:'135deg,#4facfe,#a855f7' },
-  'admin@example.com': { name:'Admin User', role:'admin', initials:'AU', gradient:'135deg,#f97316,#ef4444' },
+  'admin@example.com': { name:'Gym User', role:'admin', initials:'GU', gradient:'135deg,#f97316,#ef4444' },
 };
 
 let PRODUCTS = [
@@ -65,6 +65,8 @@ let cart = [];
 let checkInScanner = null;
 let checkInActive = false;
 let checkInMode = 'checkin';
+let memberNutritionSummary = null;
+let nutritionSpecialistMembers = [];
 
 const LIVE_PRESENCE_STORAGE_KEY = 'gymapp_live_presence';
 
@@ -139,16 +141,25 @@ const PAGE_URLS = {
   'member-checkin':'checkin.html',
   'member-workouts':'workouts.html',
   'member-coaches':'coaches.html',
+  'member-nutrition':'nutrition.html',
   'member-supplements':'supplements.html',
   'coach-dashboard':'dashboard.html',
   'coach-profile':'profile.html',
   'coach-clients':'clients.html',
   'coach-workouts':'workouts.html',
+  'nutrition-specialist-dashboard':'dashboard.html',
+  'nutrition-specialist-profile':'profile.html',
+  'nutrition-specialist-members':'members.html',
   'admin-dashboard':'dashboard.html',
   'admin-profile':'profile.html',
   'admin-coaches':'coaches.html',
   'admin-members':'members.html',
   'admin-inventory':'inventory.html',
+  'super-admin-dashboard':'dashboard.html',
+  'super-admin-gyms':'gyms.html',
+  'super-admin-users':'users.html',
+  'super-admin-coaches':'reports.html',
+  'super-admin-reports':'reports.html',
 };
 
 function getCurrentFolderPath() {
@@ -156,7 +167,12 @@ function getCurrentFolderPath() {
 }
 
 function getAssetRootPath() {
-  return location.pathname.includes('/member/') || location.pathname.includes('/coach/') || location.pathname.includes('/admin/') || location.pathname.includes('/user/') ? '../' : '';
+  return location.pathname.includes('/member/')
+    || location.pathname.includes('/coach/')
+    || location.pathname.includes('/admin/')
+    || location.pathname.includes('/user/')
+    || location.pathname.includes('/nutrition-specialist/')
+    || location.pathname.includes('/super-admin/') ? '../' : '';
 }
 
 function getCurrentPageId() {
@@ -171,6 +187,18 @@ function getStoredUser() {
 
 function setStoredUser(user) {
   return user;
+}
+
+function formatRoleLabel(role) {
+  return String(role)
+    .split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function getCsrfToken() {
+  const token = document.querySelector('meta[name="csrf-token"]');
+  return token ? token.getAttribute('content') : '';
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -249,7 +277,7 @@ async function initApp() {
   }
 
   const currentSection = location.pathname.split('/')[1];
-  if (['user', 'member', 'coach', 'admin'].includes(currentSection) && currentSection !== currentUser.role) {
+  if (['user', 'member', 'coach', 'nutrition-specialist', 'admin', 'super-admin'].includes(currentSection) && currentSection !== currentUser.role) {
     window.location.href = `/${currentUser.role}/dashboard.html`;
     return;
   }
@@ -265,14 +293,21 @@ async function initApp() {
 
   const roleEl = document.getElementById('user-role-badge');
   if (roleEl) {
-    roleEl.textContent = currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
+    roleEl.textContent = formatRoleLabel(currentUser.role);
     roleEl.className = `user-role role-${currentUser.role}`;
   }
 
   const topBadge = document.getElementById('topbar-role-badge');
   if (topBadge) {
-    const badgeCls = { user:'badge-cyan', member:'badge-green', coach:'badge-blue', admin:'badge-orange' };
-    topBadge.textContent = currentUser.role.toUpperCase();
+    const badgeCls = {
+      user: 'badge-cyan',
+      member: 'badge-green',
+      coach: 'badge-blue',
+      'nutrition-specialist': 'badge-accent',
+      admin: 'badge-orange',
+      'super-admin': 'badge-purple',
+    };
+    topBadge.textContent = currentUser.role === 'admin' ? 'GYM' : currentUser.role === 'super-admin' ? 'SUPER ADMIN' : currentUser.role.toUpperCase().replaceAll('-', ' ');
     topBadge.className = `badge topbar-badge ${badgeCls[currentUser.role]}`;
   }
 
@@ -292,7 +327,14 @@ async function initApp() {
 }
 
 function defaultPage() {
-  return { user:'user-dashboard', member:'member-dashboard', coach:'coach-dashboard', admin:'admin-dashboard' }[currentUser.role];
+  return {
+    user: 'user-dashboard',
+    member: 'member-dashboard',
+    coach: 'coach-dashboard',
+    'nutrition-specialist': 'nutrition-specialist-dashboard',
+    admin: 'admin-dashboard',
+    'super-admin': 'super-admin-dashboard',
+  }[currentUser.role];
 }
 
 const NAV_CONFIG = {
@@ -310,6 +352,7 @@ const NAV_CONFIG = {
     { icon:'fas fa-qrcode', label:'Check-In', page:'member-checkin' },
     { icon:'fas fa-dumbbell', label:'Workouts', page:'member-workouts' },
     { icon:'fas fa-user-tie', label:'Coaches', page:'member-coaches' },
+    { icon:'fas fa-apple-whole', label:'Nutrition', page:'member-nutrition' },
     { icon:'fas fa-pills', label:'Shop', page:'member-supplements' },
   ],
   coach: [
@@ -318,12 +361,23 @@ const NAV_CONFIG = {
     { icon:'fas fa-users', label:'Clients', page:'coach-clients' },
     { icon:'fas fa-dumbbell', label:'Workouts', page:'coach-workouts' },
   ],
+  'nutrition-specialist': [
+    { icon:'fas fa-gauge', label:'Dashboard', page:'nutrition-specialist-dashboard' },
+    { icon:'fas fa-user', label:'Profile', page:'nutrition-specialist-profile' },
+    { icon:'fas fa-users', label:'Members', page:'nutrition-specialist-members' },
+  ],
   admin: [
     { icon:'fas fa-gauge', label:'Dashboard', page:'admin-dashboard' },
     { icon:'fas fa-user', label:'Profile', page:'admin-profile' },
     { icon:'fas fa-user-tie', label:'Coaches', page:'admin-coaches' },
     { icon:'fas fa-users', label:'Members', page:'admin-members' },
     { icon:'fas fa-boxes', label:'Inventory', page:'admin-inventory' },
+  ],
+  'super-admin': [
+    { icon:'fas fa-gauge',       label:'Dashboard', page:'super-admin-dashboard' },
+    { icon:'fas fa-dumbbell',    label:'Gyms',      page:'super-admin-gyms' },
+    { icon:'fas fa-users',       label:'All Users', page:'super-admin-users' },
+    { icon:'fas fa-chart-bar',   label:'Reports',   page:'super-admin-reports' },
   ],
 };
 
@@ -356,9 +410,11 @@ function switchPage(pageId) {
   }
   const titles = {
     'user-dashboard':'Dashboard','user-profile':'Profile','user-explore':'Explore','user-near-gyms':'Near Gyms','user-near-coaches':'Near Coaches',
-    'member-dashboard':'Dashboard','member-profile':'Profile','member-schedule':'Schedule','member-checkin':'Check-In','member-workouts':'Workouts','member-coaches':'Coaches','member-supplements':'Shop',
+    'member-dashboard':'Dashboard','member-profile':'Profile','member-schedule':'Schedule','member-checkin':'Check-In','member-workouts':'Workouts','member-coaches':'Coaches','member-nutrition':'Nutrition','member-supplements':'Shop',
     'coach-dashboard':'Dashboard','coach-profile':'Profile','coach-clients':'Clients','coach-workouts':'Workouts',
-    'admin-dashboard':'Dashboard','admin-profile':'Profile','admin-coaches':'Coaches','admin-members':'Members','admin-inventory':'Inventory',
+    'nutrition-specialist-dashboard':'Dashboard','nutrition-specialist-profile':'Profile','nutrition-specialist-members':'Members',
+    'admin-dashboard':'Dashboard','admin-profile':'Gym Profile','admin-coaches':'Coaches','admin-members':'Members','admin-inventory':'Inventory',
+    'super-admin-dashboard':'Dashboard','super-admin-gyms':'Gyms','super-admin-users':'All Users','super-admin-reports':'Reports',
   };
   const titleEl = document.getElementById('topbar-title');
   if (titleEl) titleEl.textContent = titles[pageId] || 'Page';
@@ -446,11 +502,17 @@ function renderAllContent() {
   renderMemberLivePresence();
   renderMemberSchedule();
   renderMemberWorkouts();
+  initMemberNutrition();
   renderCoachesGrid();
   renderSupplements();
   renderCoachClients();
   renderCoachWorkouts();
+  loadNutritionSpecialistMembers();
   renderAdminInventory();
+  saInitDashboard();
+  saInitGyms();
+  saInitUsers();
+  saInitReports();
 }
 
 function renderNearbyGyms() {
@@ -462,7 +524,7 @@ function renderNearbyGyms() {
   if (!gymsToRender.length) {
     el.innerHTML = `
       <div class="panel">
-        <div class="panel-body" style="color:var(--muted);">No gyms available yet. Ask admin to complete gym profile details.</div>
+        <div class="panel-body" style="color:var(--muted);">No gyms available yet. Ask the gym to complete gym profile details.</div>
       </div>
     `;
     return;
@@ -978,6 +1040,690 @@ function renderCoachWorkouts() {
   `)).join('');
 }
 
+async function initMemberNutrition() {
+  const nutritionPage = document.getElementById('page-member-nutrition');
+  if (!nutritionPage) return;
+
+  const dateInput = document.getElementById('nutrition-date');
+  const form = document.getElementById('nutrition-entry-form');
+
+  if (!dateInput || !form) return;
+
+  if (!dateInput.value) {
+    dateInput.value = new Date().toISOString().slice(0, 10);
+  }
+
+  if (!dateInput.dataset.bound) {
+    dateInput.addEventListener('change', () => {
+      loadMemberNutritionSummary(dateInput.value);
+    });
+    dateInput.dataset.bound = '1';
+  }
+
+  if (!form.dataset.bound) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      await submitMemberNutritionEntry();
+    });
+    form.dataset.bound = '1';
+  }
+
+  await loadMemberNutritionSummary(dateInput.value);
+  await loadBodyComposition();
+}
+
+async function loadMemberNutritionSummary(date) {
+  const page = document.getElementById('page-member-nutrition');
+  if (!page) return;
+
+  try {
+    const response = await fetch(`/member/nutrition/summary?date=${encodeURIComponent(date)}`, {
+      headers: {
+        Accept: 'application/json',
+      },
+      credentials: 'same-origin',
+    });
+
+    if (!response.ok) {
+      showToast('Unable to load nutrition summary');
+      return;
+    }
+
+    memberNutritionSummary = await response.json();
+    renderMemberNutritionSummary();
+  } catch (error) {
+    showToast('Unable to load nutrition summary');
+  }
+}
+
+function renderMemberNutritionSummary() {
+  if (!memberNutritionSummary) return;
+
+  const targets = memberNutritionSummary.targets || {};
+  const consumed = memberNutritionSummary.consumed || {};
+  const entries = Array.isArray(memberNutritionSummary.entries) ? memberNutritionSummary.entries : [];
+
+  setText('nutrition-calories-consumed', consumed.calories || 0);
+  setText('nutrition-calories-target', targets.target_calories || 0);
+  setText('nutrition-calories-max', targets.max_calories || 0);
+
+  setText('nutrition-carbs-consumed', consumed.carbs || 0);
+  setText('nutrition-carbs-target', targets.target_carbs || 0);
+  setText('nutrition-carbs-max', targets.max_carbs || 0);
+
+  setText('nutrition-protein-consumed', consumed.protein || 0);
+  setText('nutrition-protein-target', targets.target_protein || 0);
+  setText('nutrition-protein-max', targets.max_protein || 0);
+
+  updateNutritionProgress('nutrition-calories-progress', consumed.calories || 0, targets.target_calories || 0, targets.max_calories || 0, 'Calories');
+  updateNutritionProgress('nutrition-carbs-progress', consumed.carbs || 0, targets.target_carbs || 0, targets.max_carbs || 0, 'Carbs');
+  updateNutritionProgress('nutrition-protein-progress', consumed.protein || 0, targets.target_protein || 0, targets.max_protein || 0, 'Protein');
+
+  const list = document.getElementById('nutrition-entries-list');
+  if (!list) return;
+
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><i class="fas fa-bowl-food"></i><p>No meals logged for this date yet</p></div>';
+    return;
+  }
+
+  list.innerHTML = entries.map(entry => `
+    <div class="nutrition-entry-card" data-entry-id="${entry.id}">
+      <div class="nutrition-entry-top">
+        <div class="nutrition-entry-name">${entry.meal_name}</div>
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <span class="badge badge-muted">${entry.time || ''}</span>
+          <button class="entry-action-btn" title="Edit" onclick="openEditMealModal(${entry.id})"><i class="fas fa-pen"></i></button>
+          <button class="entry-action-btn entry-action-delete" title="Delete" onclick="deleteMealEntry(${entry.id})"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+      <div class="nutrition-entry-macros">
+        <span><i class="fas fa-fire"></i>${entry.calories} kcal</span>
+        <span><i class="fas fa-bread-slice"></i>${entry.carbs} g carbs</span>
+        <span><i class="fas fa-drumstick-bite"></i>${entry.protein} g protein</span>
+      </div>
+      ${entry.notes ? `<div class="nutrition-entry-notes">${entry.notes}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+async function submitMemberNutritionEntry() {
+  const dateInput = document.getElementById('nutrition-date');
+  const mealName = document.getElementById('nutrition-meal-name');
+  const calories = document.getElementById('nutrition-calories-input');
+  const carbs = document.getElementById('nutrition-carbs-input');
+  const protein = document.getElementById('nutrition-protein-input');
+  const notes = document.getElementById('nutrition-notes');
+
+  if (!dateInput || !mealName || !calories || !carbs || !protein || !notes) return;
+
+  try {
+    const response = await fetch('/member/nutrition/entries', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': getCsrfToken(),
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        entry_date: dateInput.value,
+        meal_name: mealName.value.trim(),
+        calories: Number(calories.value),
+        carbs: Number(carbs.value),
+        protein: Number(protein.value),
+        notes: notes.value.trim(),
+      }),
+    });
+
+    if (!response.ok) {
+      showToast('Unable to add meal entry');
+      return;
+    }
+
+    const payload = await response.json();
+    if (memberNutritionSummary) {
+      memberNutritionSummary.entries = payload.entries || [];
+      memberNutritionSummary.consumed = payload.consumed || { calories: 0, carbs: 0, protein: 0 };
+    }
+
+    renderMemberNutritionSummary();
+    mealName.value = '';
+    calories.value = '';
+    carbs.value = '';
+    protein.value = '';
+    notes.value = '';
+    showToast('Meal added successfully');
+  } catch (error) {
+    showToast('Unable to add meal entry');
+  }
+}
+
+// ── BMI & Body Composition ───────────────────────────────────────────────────
+
+const BMI_CATEGORIES = [
+  { max: 18.5, label: 'Underweight', color: '#60a5fa', pct: 15 },
+  { max: 25,   label: 'Normal',      color: '#4ade80', pct: 40 },
+  { max: 30,   label: 'Overweight',  color: '#facc15', pct: 65 },
+  { max: 999,  label: 'Obese',       color: '#f87171', pct: 90 },
+];
+
+function recalcBMI() {
+  const h = parseFloat(document.getElementById('bmi-height')?.value);
+  const w = parseFloat(document.getElementById('bmi-weight')?.value);
+
+  const valEl  = document.getElementById('bmi-value');
+  const catEl  = document.getElementById('bmi-category');
+  const fill   = document.getElementById('bmi-scale-fill');
+  const ptr    = document.getElementById('bmi-scale-pointer');
+  const card   = document.getElementById('bmi-result-card');
+
+  if (!valEl) return;
+
+  if (!h || !w || h <= 0 || w <= 0) {
+    valEl.textContent  = '--';
+    catEl.textContent  = 'Enter height & weight';
+    if (fill) fill.style.width = '0%';
+    if (ptr)  ptr.style.display = 'none';
+    return;
+  }
+
+  const bmi = w / ((h / 100) ** 2);
+  const cat = BMI_CATEGORIES.find(c => bmi < c.max) || BMI_CATEGORIES.at(-1);
+
+  valEl.textContent  = bmi.toFixed(1);
+  catEl.textContent  = cat.label;
+  catEl.style.color  = cat.color;
+  valEl.style.color  = cat.color;
+
+  if (card) { card.style.borderColor = cat.color + '55'; card.style.boxShadow = `0 0 0 2px ${cat.color}22`; }
+  if (fill) { fill.style.width = `${cat.pct}%`; fill.style.background = cat.color; }
+  if (ptr)  { ptr.style.left = `${cat.pct}%`; ptr.style.display = 'block'; }
+
+  recalcBodyComp();
+}
+
+function recalcBodyComp() {
+  const w   = parseFloat(document.getElementById('bmi-weight')?.value);
+  const bf  = parseFloat(document.getElementById('bmi-body-fat')?.value);
+  const mm  = parseFloat(document.getElementById('bmi-muscle-mass')?.value);
+
+  const fatEl    = document.getElementById('decomp-fat-mass');
+  const leanEl   = document.getElementById('decomp-lean-mass');
+  const muscleEl = document.getElementById('decomp-muscle-mass');
+
+  if (fatEl && w && bf) {
+    const fatMass  = (w * bf) / 100;
+    const leanMass = w - fatMass;
+    fatEl.textContent  = `${fatMass.toFixed(1)} kg`;
+    leanEl.textContent = `${leanMass.toFixed(1)} kg`;
+  } else {
+    if (fatEl)  fatEl.textContent  = '--';
+    if (leanEl) leanEl.textContent = '--';
+  }
+
+  if (muscleEl) muscleEl.textContent = mm ? `${mm.toFixed(1)} kg` : '--';
+}
+
+// ── Meal Edit / Delete ───────────────────────────────────────────────────────
+
+function applyNutritionUpdate(data) {
+  if (!memberNutritionSummary) return;
+  memberNutritionSummary.entries  = data.entries;
+  memberNutritionSummary.consumed = data.consumed;
+  renderMemberNutritionSummary();
+}
+
+function openEditMealModal(entryId) {
+  const entry = memberNutritionSummary?.entries?.find(e => e.id === entryId);
+  if (!entry) return;
+
+  // Remove existing modal if any
+  document.getElementById('meal-edit-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'meal-edit-modal';
+  modal.className = 'meal-edit-overlay';
+  modal.innerHTML = `
+    <div class="meal-edit-dialog" role="dialog" aria-modal="true">
+      <div class="meal-edit-header">
+        <span><i class="fas fa-pen" style="color:var(--accent);margin-right:8px;"></i>Edit Meal</span>
+        <button class="modal-close" onclick="document.getElementById('meal-edit-modal').remove()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="meal-edit-body">
+        <div class="field">
+          <label class="field-label">Meal Name</label>
+          <input class="input" id="edit-meal-name" value="${entry.meal_name}" maxlength="255" required>
+        </div>
+        <div class="nutrition-input-grid">
+          <div class="field">
+            <label class="field-label">Calories</label>
+            <input class="input" type="number" min="0" max="9999" id="edit-meal-calories" value="${entry.calories}">
+          </div>
+          <div class="field">
+            <label class="field-label">Carbs (g)</label>
+            <input class="input" type="number" min="0" max="999" id="edit-meal-carbs" value="${entry.carbs}">
+          </div>
+          <div class="field">
+            <label class="field-label">Protein (g)</label>
+            <input class="input" type="number" min="0" max="999" id="edit-meal-protein" value="${entry.protein}">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">Notes</label>
+          <input class="input" id="edit-meal-notes" value="${entry.notes || ''}" maxlength="255">
+        </div>
+        <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+          <button class="btn btn-primary" style="flex:1;" onclick="saveEditMealEntry(${entryId})"><i class="fas fa-floppy-disk"></i> Save Changes</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('meal-edit-modal').remove()">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+
+  // Close on backdrop click
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => modal.classList.add('meal-edit-overlay-show'));
+  document.getElementById('edit-meal-name')?.focus();
+}
+
+async function saveEditMealEntry(entryId) {
+  const name     = document.getElementById('edit-meal-name')?.value?.trim();
+  const calories = parseInt(document.getElementById('edit-meal-calories')?.value);
+  const carbs    = parseInt(document.getElementById('edit-meal-carbs')?.value);
+  const protein  = parseInt(document.getElementById('edit-meal-protein')?.value);
+  const notes    = document.getElementById('edit-meal-notes')?.value?.trim();
+
+  if (!name || isNaN(calories) || isNaN(carbs) || isNaN(protein)) {
+    showNutritionToast('⚠️ Please fill in all required fields.', 'max');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/member/nutrition/entries/${entryId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ meal_name: name, calories, carbs, protein, notes }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('meal-edit-modal')?.remove();
+      applyNutritionUpdate(data);
+      showNutritionToast('✅ Meal updated!', 'target');
+    } else {
+      showNutritionToast('⚠️ ' + (data.message || 'Update failed.'), 'max');
+    }
+  } catch (_) {
+    showNutritionToast('⚠️ Network error.', 'max');
+  }
+}
+
+async function deleteMealEntry(entryId) {
+  if (!confirm('Delete this meal entry?')) return;
+
+  try {
+    const res = await fetch(`/member/nutrition/entries/${entryId}`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-TOKEN': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    const data = await res.json();
+    if (res.ok) {
+      applyNutritionUpdate(data);
+      showNutritionToast('🗑️ Meal deleted.', 'target');
+    } else {
+      showNutritionToast('⚠️ ' + (data.message || 'Delete failed.'), 'max');
+    }
+  } catch (_) {
+    showNutritionToast('⚠️ Network error.', 'max');
+  }
+}
+
+async function loadBodyComposition() {
+  if (!document.getElementById('bmi-height')) return;
+  try {
+    const res  = await fetch('/member/nutrition/body-composition', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const set = (id, val) => { if (val !== null && document.getElementById(id)) document.getElementById(id).value = val; };
+    set('bmi-height',     data.height_cm);
+    set('bmi-weight',     data.weight_kg);
+    set('bmi-body-fat',   data.body_fat_percent);
+    set('bmi-muscle-mass',data.muscle_mass_kg);
+    set('bmi-waist',      data.waist_cm);
+
+    recalcBMI();
+    setBmiLastSaved(data.saved_at);
+    renderBmiHistory(data.history || []);
+  } catch (_) {}
+}
+
+async function saveBodyComposition() {
+  const getValue = id => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? null : v; };
+
+  const height = getValue('bmi-height');
+  const weight = getValue('bmi-weight');
+
+  if (!height || !weight) {
+    showNutritionToast('⚠️ Height and weight are required.', 'max');
+    return;
+  }
+
+  const payload = {
+    height_cm:        height,
+    weight_kg:        weight,
+    body_fat_percent: getValue('bmi-body-fat'),
+    muscle_mass_kg:   getValue('bmi-muscle-mass'),
+    waist_cm:         getValue('bmi-waist'),
+  };
+
+  try {
+    const res = await fetch('/member/nutrition/body-composition', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showNutritionToast('✅ Body composition saved!', 'target');
+      setBmiLastSaved(data.saved_at);
+      renderBmiHistory(data.history || []);
+    } else {
+      showNutritionToast('⚠️ ' + (data.message || 'Save failed.'), 'max');
+    }
+  } catch (_) {
+    showNutritionToast('⚠️ Network error. Please try again.', 'max');
+  }
+}
+
+function setBmiLastSaved(savedAt) {
+  const wrap = document.getElementById('bmi-last-saved');
+  const text = document.getElementById('bmi-last-saved-text');
+  if (!wrap || !text || !savedAt) return;
+  const d = new Date(savedAt);
+  text.textContent = `Last saved: ${d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })} ${d.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' })}`;
+  wrap.style.display = 'inline-flex';
+}
+
+function renderBmiHistory(history) {
+  const container = document.getElementById('bmi-history-list');
+  if (!container) return;
+
+  if (!history.length) {
+    container.innerHTML = '<div class="empty-state" style="padding:1.2rem;"><i class="fas fa-chart-line"></i><p>No history yet. Save your first measurement!</p></div>';
+    return;
+  }
+
+  // Compute trend arrows vs previous entry
+  const rows = history.map((row, i) => {
+    const prev = history[i + 1];
+    const weightDiff = prev ? (row.weight_kg - prev.weight_kg) : null;
+    const bmiDiff    = prev ? (row.bmi - prev.bmi) : null;
+    const weightArrow = weightDiff === null ? '' : weightDiff < 0 ? '<span class="trend-down">▼ ' + Math.abs(weightDiff).toFixed(1) + ' kg</span>' : weightDiff > 0 ? '<span class="trend-up">▲ ' + weightDiff.toFixed(1) + ' kg</span>' : '<span class="trend-flat">— same</span>';
+    const bmiArrow    = bmiDiff === null ? '' : bmiDiff < 0 ? '<span class="trend-down">▼ ' + Math.abs(bmiDiff).toFixed(1) + '</span>' : bmiDiff > 0 ? '<span class="trend-up">▲ ' + bmiDiff.toFixed(1) + '</span>' : '';
+
+    const date = new Date(row.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const bmiCat = BMI_CATEGORIES.find(c => row.bmi < c.max) || BMI_CATEGORIES.at(-1);
+
+    return `<div class="bmi-history-row">
+      <div class="bmi-history-date"><i class="fas fa-calendar-day"></i> ${date}</div>
+      <div class="bmi-history-metrics">
+        <div class="bmi-history-metric">
+          <span class="bmi-history-metric-label">Weight</span>
+          <span class="bmi-history-metric-val">${row.weight_kg} kg</span>
+          ${weightArrow}
+        </div>
+        <div class="bmi-history-metric">
+          <span class="bmi-history-metric-label">BMI</span>
+          <span class="bmi-history-metric-val" style="color:${bmiCat.color}">${row.bmi}</span>
+          ${bmiArrow}
+        </div>
+        ${row.body_fat_percent ? `<div class="bmi-history-metric"><span class="bmi-history-metric-label">Body Fat</span><span class="bmi-history-metric-val">${row.body_fat_percent}%</span></div>` : ''}
+        ${row.muscle_mass_kg ? `<div class="bmi-history-metric"><span class="bmi-history-metric-label">Muscle</span><span class="bmi-history-metric-val">${row.muscle_mass_kg} kg</span></div>` : ''}
+        ${row.waist_cm ? `<div class="bmi-history-metric"><span class="bmi-history-metric-label">Waist</span><span class="bmi-history-metric-val">${row.waist_cm} cm</span></div>` : ''}
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = rows.join('');
+}
+
+function toggleBmiHistory() {
+  const content  = document.getElementById('bmi-history-content');
+  const chevron  = document.getElementById('bmi-history-chevron');
+  if (!content) return;
+  const open = content.style.display === 'none' || content.style.display === '';
+  content.style.display = open ? 'block' : 'none';
+  if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+
+
+async function loadNutritionSpecialistMembers() {
+  if (currentUser?.role !== 'nutrition-specialist') return;
+
+  const dashboardContainer = document.getElementById('nutrition-specialist-dashboard-list');
+  const membersContainer = document.getElementById('nutrition-specialist-members-list');
+  if (!dashboardContainer && !membersContainer) return;
+
+  try {
+    const response = await fetch('/nutrition-specialist/members/data', {
+      headers: {
+        Accept: 'application/json',
+      },
+      credentials: 'same-origin',
+    });
+
+    if (!response.ok) {
+      showToast('Unable to load members nutrition data');
+      return;
+    }
+
+    const payload = await response.json();
+    nutritionSpecialistMembers = Array.isArray(payload.members) ? payload.members : [];
+    renderNutritionSpecialistDashboard();
+    renderNutritionSpecialistMembersPage();
+  } catch (error) {
+    showToast('Unable to load members nutrition data');
+  }
+}
+
+function renderNutritionSpecialistDashboard() {
+  const dashboardContainer = document.getElementById('nutrition-specialist-dashboard-list');
+  if (!dashboardContainer) return;
+
+  const totalMembers = nutritionSpecialistMembers.length;
+  const membersOnTrack = nutritionSpecialistMembers.filter(member => {
+    return Number(member.today?.calories || 0) <= Number(member.targets?.max_calories || 0);
+  }).length;
+  const totalMeals = nutritionSpecialistMembers.reduce((sum, member) => sum + Number(member.today?.meals || 0), 0);
+
+  setText('ns-total-members', totalMembers);
+  setText('ns-members-on-track', membersOnTrack);
+  setText('ns-total-meals-logged', totalMeals);
+
+  if (!totalMembers) {
+    dashboardContainer.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><i class="fas fa-users"></i><p>No members available</p></div>';
+    return;
+  }
+
+  dashboardContainer.innerHTML = nutritionSpecialistMembers.map(member => `
+    <div class="nutrition-specialist-snapshot">
+      <div>
+        <div class="nutrition-entry-name">${member.name}</div>
+        <div style="font-size:0.8rem;color:var(--muted);">${member.email}</div>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end;">
+        <span class="badge badge-muted">${member.today.calories} / ${member.targets.max_calories} kcal</span>
+        <span class="badge badge-blue">${member.today.meals} meal${member.today.meals === 1 ? '' : 's'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderNutritionSpecialistMembersPage() {
+  const membersContainer = document.getElementById('nutrition-specialist-members-list');
+  if (!membersContainer) return;
+
+  if (!nutritionSpecialistMembers.length) {
+    membersContainer.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><i class="fas fa-users"></i><p>No members available</p></div>';
+    return;
+  }
+
+  membersContainer.innerHTML = nutritionSpecialistMembers.map(member => `
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">${member.name}</div>
+          <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">${member.email}</div>
+        </div>
+        <span class="badge badge-muted">${member.today.calories} kcal today</span>
+      </div>
+      <div class="panel-body">
+        <div class="nutrition-entry-macros" style="margin-bottom:1rem;">
+          <span><i class="fas fa-bread-slice"></i>${member.today.carbs} g carbs</span>
+          <span><i class="fas fa-drumstick-bite"></i>${member.today.protein} g protein</span>
+          <span><i class="fas fa-utensils"></i>${member.today.meals} meals</span>
+        </div>
+
+        <form onsubmit="saveNutritionTargets(event, ${member.id})">
+          <div class="nutrition-targets-grid">
+            <div class="field">
+              <label class="field-label">Target Calories</label>
+              <input class="input" type="number" name="target_calories" min="500" value="${member.targets.target_calories}" required>
+            </div>
+            <div class="field">
+              <label class="field-label">Max Calories</label>
+              <input class="input" type="number" name="max_calories" min="500" value="${member.targets.max_calories}" required>
+            </div>
+            <div class="field">
+              <label class="field-label">Target Carbs (g)</label>
+              <input class="input" type="number" name="target_carbs" min="20" value="${member.targets.target_carbs}" required>
+            </div>
+            <div class="field">
+              <label class="field-label">Max Carbs (g)</label>
+              <input class="input" type="number" name="max_carbs" min="20" value="${member.targets.max_carbs}" required>
+            </div>
+            <div class="field">
+              <label class="field-label">Target Protein (g)</label>
+              <input class="input" type="number" name="target_protein" min="20" value="${member.targets.target_protein}" required>
+            </div>
+            <div class="field">
+              <label class="field-label">Max Protein (g)</label>
+              <input class="input" type="number" name="max_protein" min="20" value="${member.targets.max_protein}" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save"></i>Save Targets</button>
+        </form>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function saveNutritionTargets(event, memberId) {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+
+  const payload = {
+    target_calories: Number(formData.get('target_calories')),
+    max_calories: Number(formData.get('max_calories')),
+    target_carbs: Number(formData.get('target_carbs')),
+    max_carbs: Number(formData.get('max_carbs')),
+    target_protein: Number(formData.get('target_protein')),
+    max_protein: Number(formData.get('max_protein')),
+  };
+
+  try {
+    const response = await fetch(`/nutrition-specialist/members/${memberId}/targets`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': getCsrfToken(),
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      showToast('Unable to save nutrition targets');
+      return;
+    }
+
+    showToast('Nutrition targets updated');
+    await loadNutritionSpecialistMembers();
+  } catch (error) {
+    showToast('Unable to save nutrition targets');
+  }
+}
+
+function updateNutritionProgress(id, consumed, target, max, label) {
+  const bar = document.getElementById(id);
+  if (!bar) return;
+
+  const card = bar.closest('.nutrition-goal-card');
+  const msgEl = card ? card.querySelector('.nutrition-goal-msg') : null;
+
+  if (!max || max <= 0) {
+    bar.style.width = '0%';
+    return;
+  }
+
+  const percent = Math.min((consumed / max) * 100, 100);
+  bar.style.width = `${percent}%`;
+
+  // Remove previous state classes
+  if (card) card.classList.remove('nutrition-state-target', 'nutrition-state-max');
+  if (msgEl) { msgEl.textContent = ''; msgEl.className = 'nutrition-goal-msg'; }
+
+  if (consumed >= max) {
+    if (card) card.classList.add('nutrition-state-max');
+    if (msgEl) {
+      msgEl.textContent = `⚠️ ${label} limit exceeded!`;
+      msgEl.classList.add('nutrition-msg-max');
+    }
+    showNutritionToast(`⚠️ You've exceeded your ${label} limit!`, 'max');
+  } else if (target && consumed >= target) {
+    if (card) card.classList.add('nutrition-state-target');
+    if (msgEl) {
+      msgEl.textContent = `🎯 ${label} target reached!`;
+      msgEl.classList.add('nutrition-msg-target');
+    }
+    showNutritionToast(`🎯 ${label} target reached! Great work!`, 'target');
+  }
+}
+
+const _shownNutritionToasts = new Set();
+function showNutritionToast(message, type) {
+  const key = message;
+  if (_shownNutritionToasts.has(key)) return;
+  _shownNutritionToasts.add(key);
+  setTimeout(() => _shownNutritionToasts.delete(key), 4000);
+
+  let container = document.getElementById('nutrition-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'nutrition-toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `nutrition-toast nutrition-toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add('nutrition-toast-show'));
+  setTimeout(() => {
+    toast.classList.remove('nutrition-toast-show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3500);
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = String(value);
+}
+
 function renderAdminInventory() {
   const tbody = document.getElementById('admin-inventory-body');
   if (!tbody) return;
@@ -1203,6 +1949,186 @@ function showToast(msg) {
   t.style.display = 'flex';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.style.display = 'none', 3000);
+}
+
+/* ═══════════════════════════════════════════════════════
+   SUPER ADMIN
+═══════════════════════════════════════════════════════ */
+
+/* ── Dashboard ── */
+function saInitDashboard() {
+  if (!document.getElementById('sa-stat-total-users')) return;
+  fetch('../super-admin/stats', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json()).then(data => {
+      const stats = data.stats || {};
+      const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+      setVal('sa-stat-total-users',  stats.total_users);
+      setVal('sa-stat-members',      stats.total_members);
+      setVal('sa-stat-coaches',      stats.total_coaches);
+      setVal('sa-stat-gyms',         stats.total_admins);
+      setVal('sa-stat-revenue',      '$' + (stats.total_revenue ?? 0).toLocaleString());
+      setVal('sa-stat-checkins-today', stats.today_check_ins);
+      setVal('sa-stat-nutrition',    stats.total_nutrition_logs);
+      setVal('sa-stat-orders',       stats.total_orders);
+
+      // Role distribution
+      const rd = document.getElementById('sa-role-distribution-list');
+      if (rd) {
+        const dist = [
+          { label: 'Members',              count: stats.total_members },
+          { label: 'Coaches',              count: stats.total_coaches },
+          { label: 'Gyms (Admin)',         count: stats.total_admins },
+          { label: 'Nutrition Specialists',count: stats.total_nutrition_specialists },
+          { label: 'Regular Users',        count: (stats.total_users - stats.total_members - stats.total_coaches - stats.total_admins - stats.total_nutrition_specialists) },
+        ];
+        rd.innerHTML = dist.map(d => `<div class="sa-dist-row"><span>${d.label}</span><strong>${d.count ?? 0}</strong></div>`).join('');
+      }
+    }).catch(() => {});
+
+  fetch('../super-admin/coaches/data', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json()).then(data => {
+      const list = document.getElementById('sa-top-coaches-list');
+      if (!list) return;
+      const coaches = (data.coaches || []).slice(0, 5);
+      list.innerHTML = coaches.length
+        ? coaches.map(c => `<div class="sa-coach-row"><span>${escHtml(c.name)}</span><span class="muted">${c.clients_count ?? 0} clients</span></div>`).join('')
+        : '<div class="muted" style="padding:1rem;text-align:center">No coaches yet</div>';
+    }).catch(() => {});
+}
+
+/* ── Gyms ── */
+function saInitGyms() {
+  if (!document.getElementById('sa-gyms-list')) return;
+  fetch('../super-admin/gyms/data', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json()).then(data => {
+      const list = document.getElementById('sa-gyms-list');
+      const gyms = data.gyms || [];
+      list.innerHTML = gyms.length
+        ? gyms.map(g => `
+            <div class="sa-gym-card">
+              <div class="sa-gym-name">${escHtml(g.name)}</div>
+              <div class="sa-gym-meta"><i class="fas fa-envelope"></i> ${escHtml(g.email)}</div>
+              ${g.gym_name ? `<div class="sa-gym-meta"><i class="fas fa-dumbbell"></i> ${escHtml(g.gym_name)}</div>` : ''}
+              ${g.gym_location ? `<div class="sa-gym-meta"><i class="fas fa-map-marker-alt"></i> ${escHtml(g.gym_location)}</div>` : ''}
+              <div class="sa-gym-meta"><i class="fas fa-calendar"></i> Joined ${new Date(g.created_at).toLocaleDateString()}</div>
+            </div>`).join('')
+        : '<div class="muted" style="padding:2rem;text-align:center">No gyms yet</div>';
+    }).catch(() => {});
+}
+
+/* ── Users ── */
+let saUserDebounce;
+function saInitUsers() {
+  if (!document.getElementById('sa-users-table-wrap')) return;
+  saLoadUsers();
+  const searchEl = document.getElementById('sa-user-search');
+  const roleEl   = document.getElementById('sa-user-role-filter');
+  if (searchEl) searchEl.addEventListener('input', () => { clearTimeout(saUserDebounce); saUserDebounce = setTimeout(saLoadUsers, 300); });
+  if (roleEl)   roleEl.addEventListener('change', saLoadUsers);
+}
+
+function saLoadUsers() {
+  const search = (document.getElementById('sa-user-search')?.value || '').trim();
+  const role   = (document.getElementById('sa-user-role-filter')?.value || '');
+  const wrap   = document.getElementById('sa-users-table-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="muted" style="padding:2rem;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading…</div>';
+  fetch(`../super-admin/users/data?search=${encodeURIComponent(search)}&role=${encodeURIComponent(role)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json()).then(data => {
+      const users = data.users || [];
+      const badge = document.getElementById('sa-user-count');
+      if (badge) badge.textContent = users.length;
+      saRenderUsersTable(users);
+    }).catch(() => { wrap.innerHTML = '<div class="muted" style="padding:2rem;text-align:center">Failed to load users</div>'; });
+}
+
+function saRenderUsersTable(users) {
+  const wrap = document.getElementById('sa-users-table-wrap');
+  if (!wrap) return;
+  const roles = ['user','member','coach','nutrition-specialist','admin'];
+  if (!users.length) { wrap.innerHTML = '<div class="muted" style="padding:2rem;text-align:center">No users found</div>'; return; }
+  wrap.innerHTML = `<div class="sa-users-scroll"><table class="sa-user-table">
+    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead>
+    <tbody>
+      ${users.map(u => `<tr>
+        <td>${escHtml(u.name)}</td>
+        <td>${escHtml(u.email)}</td>
+        <td><select class="sa-role-select" onchange="saChangeUserRole(${u.id},this.value)">
+          ${roles.map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('')}
+        </select></td>
+        <td>${new Date(u.created_at).toLocaleDateString()}</td>
+        <td><button class="btn-danger-sm" onclick="saDeleteUser(${u.id},'${escHtml(u.name).replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function saChangeUserRole(userId, newRole) {
+  const token = document.querySelector('meta[name="csrf-token"]')?.content || window._csrfToken || '';
+  fetch(`../super-admin/users/${userId}/role`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify({ role: newRole })
+  }).then(r => r.json()).then(d => { showToast(d.message || 'Role updated'); }).catch(() => showToast('Failed to update role'));
+}
+
+function saDeleteUser(userId, name) {
+  if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  const token = document.querySelector('meta[name="csrf-token"]')?.content || window._csrfToken || '';
+  fetch(`../super-admin/users/${userId}`, {
+    method: 'DELETE',
+    headers: { 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' }
+  }).then(r => r.json()).then(d => { showToast(d.message || 'User deleted'); saLoadUsers(); }).catch(() => showToast('Failed to delete user'));
+}
+
+/* ── Reports ── */
+function saInitReports() {
+  if (!document.getElementById('sa-orders-by-status')) return;
+  fetch('../super-admin/reports/data', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json()).then(data => {
+      // Orders by status
+      const obs = document.getElementById('sa-orders-by-status');
+      if (obs) {
+        const orders = data.orders_by_status || [];
+        obs.innerHTML = orders.length
+          ? orders.map(o => `<div class="sa-dist-row"><span>${escHtml(o.status)}</span><strong>${o.count}</strong></div>`).join('')
+          : '<div class="muted">No orders yet</div>';
+      }
+      // Top products
+      const tp = document.getElementById('sa-top-products');
+      if (tp) {
+        const products = data.top_products || [];
+        tp.innerHTML = products.length
+          ? products.map(p => `<div class="sa-dist-row"><span>${escHtml(p.product_name)}</span><strong>${p.total_sold} sold</strong></div>`).join('')
+          : '<div class="muted">No product sales yet</div>';
+      }
+      // Check-in chart (simple bar)
+      const cc = document.getElementById('sa-checkin-chart');
+      if (cc) {
+        const checkins = data.checkins_last_30_days || [];
+        const max = Math.max(1, ...checkins.map(c => c.count));
+        cc.innerHTML = `<div class="sa-bar-chart">${checkins.map(c => `
+          <div class="sa-bar-col">
+            <div class="sa-bar" style="height:${Math.round((c.count/max)*80)}px" title="${c.date}: ${c.count}"></div>
+            <div class="sa-bar-label">${c.date?.slice(5)}</div>
+          </div>`).join('')}</div>`;
+      }
+      // Coaches table
+      const ct = document.getElementById('sa-coaches-table');
+      if (ct) {
+        const coaches = data.coaches || [];
+        ct.innerHTML = coaches.length
+          ? `<table class="sa-user-table"><thead><tr><th>Coach</th><th>Email</th><th>Clients</th></tr></thead><tbody>
+              ${coaches.map(c => `<tr><td>${escHtml(c.name)}</td><td>${escHtml(c.email)}</td><td>${c.clients_count ?? 0}</td></tr>`).join('')}
+            </tbody></table>`
+          : '<div class="muted">No coaches yet</div>';
+      }
+    }).catch(() => {});
+}
+
+/* helper (idempotent with existing escHtml if present) */
+if (typeof escHtml !== 'function') {
+  function escHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 }
 
 /* ═══════════════════════════════════════════════════════

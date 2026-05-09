@@ -59,7 +59,7 @@
 
         <div id="profile-message" style="margin-bottom:14px;"></div>
 
-        <div class="panel" style="max-width:600px;">
+        <div class="panel">
           <div class="panel-body">
             <form id="profile-form" method="POST" action="/member/profile/update">
               @csrf

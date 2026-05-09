@@ -34,14 +34,26 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Sarah Johnson', 'role' => 'coach', 'password' => $password, 'gender' => 'female', 'date_of_birth' => '1988-03-10']
         );
 
+        $nutritionSpecialist = User::updateOrCreate(
+            ['email' => 'nutrition@example.com'],
+            ['name' => 'Noor Nutrition', 'role' => 'nutrition-specialist', 'password' => $password, 'gender' => 'female', 'date_of_birth' => '1992-11-05']
+        );
+
         User::updateOrCreate(
             ['email' => 'admin@example.com'],
             ['name' => 'Admin User', 'role' => 'admin', 'password' => $password, 'gender' => null, 'date_of_birth' => null]
         );
 
+        User::updateOrCreate(
+            ['email' => 'superadmin@example.com'],
+            ['name' => 'Super Admin', 'role' => 'super-admin', 'password' => $password, 'gender' => null, 'date_of_birth' => null]
+        );
+
         DB::table('order_items')->delete();
         DB::table('orders')->delete();
         DB::table('check_ins')->delete();
+        DB::table('nutrition_entries')->delete();
+        DB::table('nutrition_profiles')->delete();
         DB::table('exercises')->delete();
         DB::table('workouts')->delete();
         DB::table('coach_member')->delete();
@@ -293,6 +305,69 @@ class DatabaseSeeder extends Seeder
                 'description' => 'Restorative hip stretch.',
                 'created_at' => now(),
                 'updated_at' => now(),
+            ],
+        ]);
+
+        DB::table('nutrition_profiles')->insert([
+            [
+                'user_id' => $john->id,
+                'nutrition_specialist_user_id' => $nutritionSpecialist->id,
+                'target_calories' => 2400,
+                'max_calories' => 2700,
+                'target_carbs' => 260,
+                'max_carbs' => 320,
+                'target_protein' => 170,
+                'max_protein' => 210,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'user_id' => $emma->id,
+                'nutrition_specialist_user_id' => $nutritionSpecialist->id,
+                'target_calories' => 1900,
+                'max_calories' => 2200,
+                'target_carbs' => 180,
+                'max_carbs' => 230,
+                'target_protein' => 140,
+                'max_protein' => 175,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        DB::table('nutrition_entries')->insert([
+            [
+                'user_id' => $john->id,
+                'entry_date' => now()->toDateString(),
+                'meal_name' => 'Breakfast Oats + Whey',
+                'calories' => 620,
+                'carbs' => 72,
+                'protein' => 38,
+                'notes' => 'Added banana and peanut butter.',
+                'created_at' => now()->subHours(8),
+                'updated_at' => now()->subHours(8),
+            ],
+            [
+                'user_id' => $john->id,
+                'entry_date' => now()->toDateString(),
+                'meal_name' => 'Chicken Rice Bowl',
+                'calories' => 760,
+                'carbs' => 80,
+                'protein' => 54,
+                'notes' => null,
+                'created_at' => now()->subHours(3),
+                'updated_at' => now()->subHours(3),
+            ],
+            [
+                'user_id' => $emma->id,
+                'entry_date' => now()->toDateString(),
+                'meal_name' => 'Greek Yogurt + Berries',
+                'calories' => 340,
+                'carbs' => 28,
+                'protein' => 24,
+                'notes' => null,
+                'created_at' => now()->subHours(5),
+                'updated_at' => now()->subHours(5),
             ],
         ]);
     }

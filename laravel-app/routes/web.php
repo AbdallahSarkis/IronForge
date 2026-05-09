@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AppDataController;
+use App\Http\Controllers\NutritionController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SuperAdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -43,7 +45,14 @@ Route::middleware('auth')->group(function () {
         Route::view('/checkin.html', 'member.checkin');
         Route::view('/workouts.html', 'member.workouts');
         Route::view('/coaches.html', 'member.coaches');
+        Route::view('/nutrition.html', 'member.nutrition');
         Route::view('/supplements.html', 'member.supplements');
+        Route::get('/nutrition/summary', [NutritionController::class, 'memberSummary'])->name('member.nutrition.summary');
+        Route::post('/nutrition/entries', [NutritionController::class, 'storeMemberEntry'])->name('member.nutrition.entries.store');
+        Route::get('/nutrition/body-composition', [NutritionController::class, 'memberBodyComposition'])->name('member.nutrition.body');
+        Route::post('/nutrition/body-composition', [NutritionController::class, 'saveMemberBodyComposition'])->name('member.nutrition.body.save');
+        Route::put('/nutrition/entries/{entry}', [NutritionController::class, 'updateMemberEntry'])->name('member.nutrition.entries.update');
+        Route::delete('/nutrition/entries/{entry}', [NutritionController::class, 'deleteMemberEntry'])->name('member.nutrition.entries.delete');
         Route::post('/profile/update', [ProfileController::class, 'updateProfile'])->name('profile.update');
     });
 
@@ -64,6 +73,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/profile/update', [ProfileController::class, 'updateProfile'])->name('profile.update');
     });
 
+    Route::prefix('nutrition-specialist')->middleware('role:nutrition-specialist')->group(function () {
+        Route::view('/dashboard.html', 'nutrition-specialist.dashboard');
+        Route::view('/profile.html', 'nutrition-specialist.profile');
+        Route::view('/members.html', 'nutrition-specialist.members');
+        Route::get('/members/data', [NutritionController::class, 'specialistMembers'])->name('nutrition.specialist.members');
+        Route::post('/members/{member}/targets', [NutritionController::class, 'updateMemberTargets'])->name('nutrition.specialist.members.targets');
+        Route::post('/profile/update', [ProfileController::class, 'updateProfile'])->name('profile.update');
+    });
+
     Route::prefix('admin')->middleware('role:admin')->group(function () {
         Route::view('/dashboard.html', 'admin.dashboard');
         Route::view('/profile.html', 'admin.profile');
@@ -71,5 +89,19 @@ Route::middleware('auth')->group(function () {
         Route::view('/members.html', 'admin.members');
         Route::view('/inventory.html', 'admin.inventory');
         Route::post('/profile/update', [ProfileController::class, 'updateProfile'])->name('profile.update');
+    });
+
+    Route::prefix('super-admin')->middleware('role:super-admin')->group(function () {
+        Route::view('/dashboard.html', 'super-admin.dashboard');
+        Route::view('/gyms.html', 'super-admin.gyms');
+        Route::view('/users.html', 'super-admin.users');
+        Route::view('/reports.html', 'super-admin.reports');
+        Route::get('/stats', [SuperAdminController::class, 'stats'])->name('super-admin.stats');
+        Route::get('/gyms/data', [SuperAdminController::class, 'gyms'])->name('super-admin.gyms.data');
+        Route::get('/users/data', [SuperAdminController::class, 'users'])->name('super-admin.users.data');
+        Route::get('/coaches/data', [SuperAdminController::class, 'coaches'])->name('super-admin.coaches.data');
+        Route::get('/reports/data', [SuperAdminController::class, 'reports'])->name('super-admin.reports.data');
+        Route::post('/users/{id}/role', [SuperAdminController::class, 'changeUserRole'])->name('super-admin.users.role');
+        Route::delete('/users/{id}', [SuperAdminController::class, 'deleteUser'])->name('super-admin.users.delete');
     });
 });

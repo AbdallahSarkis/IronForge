@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>IRONFORGE — Admin Profile</title>
+  <title>IRONFORGE — Gym Profile</title>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../assets/css/styles.css">
@@ -25,8 +25,8 @@
     <div class="sidebar-user" id="sidebar-user">
       <div class="user-avatar" id="user-avatar">AU</div>
       <div class="user-info">
-        <div class="user-name" id="user-name-label">Admin User</div>
-        <div class="user-role role-admin" id="user-role-badge">Admin</div>
+        <div class="user-name" id="user-name-label">Gym User</div>
+        <div class="user-role role-admin" id="user-role-badge">Gym</div>
       </div>
     </div>
 
@@ -61,7 +61,7 @@
               @csrf
 
               <div class="form-group">
-                <label class="form-label">Admin Name</label>
+                <label class="form-label">Gym Name</label>
                 <input type="text" class="form-control" name="name" id="profile-name" required>
               </div>
 

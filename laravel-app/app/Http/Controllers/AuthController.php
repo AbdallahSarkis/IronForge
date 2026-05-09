@@ -202,8 +202,10 @@ class AuthController extends Controller
     {
         return match ($role) {
             'admin' => '135deg,#f97316,#ef4444',
+            'super-admin' => '135deg,#a855f7,#ec4899',
             'coach' => '135deg,#4facfe,#a855f7',
             'user' => '135deg,#06b6d4,#0ea5e9',
+            'nutrition-specialist' => '135deg,#f59e0b,#facc15',
             default => '135deg,#22c55e,#16a34a',
         };
     }

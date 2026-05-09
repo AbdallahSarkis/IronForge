@@ -25,7 +25,7 @@
       <div class="user-avatar" id="user-avatar">JD</div>
       <div class="user-info">
         <div class="user-name" id="user-name-label">John Doe</div>
-        <div class="user-role role-admin" id="user-role-badge">Admin</div>
+        <div class="user-role role-admin" id="user-role-badge">Gym</div>
       </div>
     </div>
 
@@ -53,7 +53,7 @@
     <div class="page-content">
 <div class="page" id="page-admin-dashboard">
         <div class="section-header">
-          <div class="section-title">Admin Dashboard</div>
+          <div class="section-title">Gym Dashboard</div>
           <div class="section-sub">Full system overview</div>
         </div>
         <div class="stats-grid">
@@ -95,7 +95,7 @@
               <div style="display:flex;align-items:center;gap:12px;">
                 <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#f97316,#ef4444);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;">AU</div>
                 <div>
-                  <div style="font-weight:600;">Admin User</div>
+                  <div style="font-weight:600;">Gym User</div>
                   <div style="font-size:0.8rem;color:var(--muted);">admin@example.com</div>
                 </div>
               </div>
