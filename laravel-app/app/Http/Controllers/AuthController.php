@@ -181,6 +181,7 @@ class AuthController extends Controller
             'gym_name' => $user->gym_name,
             'gym_open_time' => $user->gym_open_time,
             'gym_close_time' => $user->gym_close_time,
+            'module_access' => $user->module_access,
             'initials' => $this->initials($user->name),
             'gradient' => $this->roleGradient($user->role),
         ]);

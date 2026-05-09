@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'google_id', 'avatar', 'gender', 'date_of_birth', 'location_address', 'location_latitude', 'location_longitude', 'coach_gym_locations', 'gym_name', 'gym_open_time', 'gym_close_time'])]
+#[Fillable(['name', 'email', 'password', 'role', 'google_id', 'avatar', 'gender', 'date_of_birth', 'location_address', 'location_latitude', 'location_longitude', 'coach_gym_locations', 'gym_name', 'gym_open_time', 'gym_close_time', 'module_access'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -30,9 +30,26 @@ class User extends Authenticatable
             'location_latitude' => 'float',
             'location_longitude' => 'float',
             'coach_gym_locations' => 'array',
+            'module_access' => 'array',
             'gym_open_time' => 'string',
             'gym_close_time' => 'string',
             'password' => 'hashed',
         ];
+    }
+
+    public function hasModuleAccess(string $module): bool
+    {
+        if ($this->role === 'super-admin') {
+            return true;
+        }
+
+        $modules = $this->module_access;
+
+        // Backward compatibility: if no explicit modules are set, keep access enabled.
+        if (! is_array($modules)) {
+            return true;
+        }
+
+        return in_array($module, $modules, true);
     }
 }

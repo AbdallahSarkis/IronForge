@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ModuleCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 
 class SuperAdminController extends Controller
@@ -37,6 +39,21 @@ class SuperAdminController extends Controller
             'total_nutrition_logs' => $totalNutritionLogs,
             'total_workouts'       => $totalWorkouts,
             'total_products'       => $totalProducts,
+        ]);
+    }
+
+    /** GET /super-admin/modules — list all configurable modules */
+    public function modules(Request $request): JsonResponse
+    {
+        return response()->json([
+            'modules' => collect(ModuleCatalog::all())
+                ->map(fn (string $label, string $key): array => [
+                    'key' => $key,
+                    'label' => $label,
+                ])
+                ->values()
+                ->all(),
+            'modules_by_role' => ModuleCatalog::byRole(),
         ]);
     }
 
@@ -83,7 +100,7 @@ class SuperAdminController extends Controller
             });
         }
 
-        $users = $query->get(['id', 'name', 'email', 'role', 'gender', 'date_of_birth', 'created_at'])
+        $users = $query->get(['id', 'name', 'email', 'role', 'gender', 'date_of_birth', 'module_access', 'created_at'])
             ->map(fn (object $u): array => [
                 'id'       => (int) $u->id,
                 'name'     => $u->name,
@@ -91,6 +108,7 @@ class SuperAdminController extends Controller
                 'role'     => $u->role,
                 'gender'   => $u->gender,
                 'dob'      => $u->date_of_birth,
+                'module_access' => json_decode((string) ($u->module_access ?: 'null'), true),
                 'joined'   => $u->created_at ? date('M j, Y', strtotime((string) $u->created_at)) : '—',
             ])
             ->values()
@@ -197,6 +215,47 @@ class SuperAdminController extends Controller
         }
 
         return response()->json(['message' => 'Role updated successfully.']);
+    }
+
+    /** POST /super-admin/users/{id}/modules — set user module access */
+    public function updateUserModules(Request $request, int $id): JsonResponse
+    {
+        $user = DB::table('users')->where('id', $id)->first(['id', 'role']);
+
+        if (! $user || $user->role === 'super-admin') {
+            return response()->json(['message' => 'User not found or cannot update super-admin modules.'], 404);
+        }
+
+        $allowedModules = ModuleCatalog::keysForRole((string) $user->role);
+        $validator = Validator::make($request->all(), [
+            'modules' => ['nullable', 'array'],
+            'modules.*' => ['string', 'in:'.implode(',', $allowedModules)],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Invalid modules for selected user role.',
+                'errors' => $validator->errors(),
+                'allowed_modules' => $allowedModules,
+            ], 422);
+        }
+
+        $data = $validator->validated();
+
+        $modules = array_values(array_unique($data['modules'] ?? []));
+
+        DB::table('users')
+            ->where('id', $id)
+            ->update([
+                'module_access' => json_encode($modules),
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'message' => 'Module access updated successfully.',
+            'available_modules' => $allowedModules,
+            'module_access' => $modules,
+        ]);
     }
 
     /** DELETE /super-admin/users/{id} — delete any non-super-admin user */

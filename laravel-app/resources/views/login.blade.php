@@ -71,9 +71,6 @@
           <button type="button" class="role-tab" onclick="selectRole('admin',this)">
             <i class="fas fa-dumbbell"></i> Gym
           </button>
-          <button type="button" class="role-tab" onclick="selectRole('super-admin',this)">
-            <i class="fas fa-crown"></i> Super Admin
-          </button>
         </div>
 
         <div class="form-group">
@@ -105,7 +102,6 @@
         <div class="demo-cred-row"><span>Coach</span><span>sarah@example.com / password</span></div>
         <div class="demo-cred-row"><span>Nutrition Specialist</span><span>nutrition@example.com / password</span></div>
         <div class="demo-cred-row"><span>Gym</span><span>admin@example.com / password</span></div>
-        <div class="demo-cred-row"><span>Super Admin</span><span>superadmin@example.com / password</span></div>
       </div>
     </div>
   </div>

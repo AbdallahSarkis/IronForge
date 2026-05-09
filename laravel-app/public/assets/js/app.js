@@ -68,6 +68,24 @@ let checkInMode = 'checkin';
 let memberNutritionSummary = null;
 let nutritionSpecialistMembers = [];
 
+const MODULE_RULES = {
+  'user-explore': 'explore',
+  'user-near-gyms': 'near-gyms',
+  'user-near-coaches': 'near-coaches',
+  'member-schedule': 'schedule',
+  'member-checkin': 'checkin',
+  'member-workouts': 'workouts',
+  'member-coaches': 'coaches',
+  'member-nutrition': 'nutrition',
+  'member-supplements': 'supplements',
+  'coach-clients': 'clients',
+  'coach-workouts': 'workouts',
+  'nutrition-specialist-members': 'members',
+  'admin-coaches': 'coaches',
+  'admin-members': 'members',
+  'admin-inventory': 'inventory',
+};
+
 const LIVE_PRESENCE_STORAGE_KEY = 'gymapp_live_presence';
 
 function getLivePresenceMap() {
@@ -158,6 +176,7 @@ const PAGE_URLS = {
   'super-admin-dashboard':'dashboard.html',
   'super-admin-gyms':'gyms.html',
   'super-admin-users':'users.html',
+  'super-admin-user-access':'user-access.html',
   'super-admin-coaches':'reports.html',
   'super-admin-reports':'reports.html',
 };
@@ -276,6 +295,10 @@ async function initApp() {
     return;
   }
 
+  if (!Array.isArray(currentUser.module_access)) {
+    currentUser.module_access = null;
+  }
+
   const currentSection = location.pathname.split('/')[1];
   if (['user', 'member', 'coach', 'nutrition-specialist', 'admin', 'super-admin'].includes(currentSection) && currentSection !== currentUser.role) {
     window.location.href = `/${currentUser.role}/dashboard.html`;
@@ -327,7 +350,7 @@ async function initApp() {
 }
 
 function defaultPage() {
-  return {
+  const roleDefault = {
     user: 'user-dashboard',
     member: 'member-dashboard',
     coach: 'coach-dashboard',
@@ -335,6 +358,11 @@ function defaultPage() {
     admin: 'admin-dashboard',
     'super-admin': 'super-admin-dashboard',
   }[currentUser.role];
+
+  if (roleDefault && hasPageAccess(roleDefault)) return roleDefault;
+
+  const firstAllowedPage = (NAV_CONFIG[currentUser.role] || []).find(item => hasPageAccess(item.page));
+  return firstAllowedPage ? firstAllowedPage.page : roleDefault;
 }
 
 const NAV_CONFIG = {
@@ -352,7 +380,7 @@ const NAV_CONFIG = {
     { icon:'fas fa-qrcode', label:'Check-In', page:'member-checkin' },
     { icon:'fas fa-dumbbell', label:'Workouts', page:'member-workouts' },
     { icon:'fas fa-user-tie', label:'Coaches', page:'member-coaches' },
-    { icon:'fas fa-apple-whole', label:'Nutrition', page:'member-nutrition' },
+    { icon:'fas fa-apple-whole', label:'Nutrition', page:'member-nutrition', module:'nutrition' },
     { icon:'fas fa-pills', label:'Shop', page:'member-supplements' },
   ],
   coach: [
@@ -377,14 +405,28 @@ const NAV_CONFIG = {
     { icon:'fas fa-gauge',       label:'Dashboard', page:'super-admin-dashboard' },
     { icon:'fas fa-dumbbell',    label:'Gyms',      page:'super-admin-gyms' },
     { icon:'fas fa-users',       label:'All Users', page:'super-admin-users' },
+    { icon:'fas fa-shield-halved', label:'User Access', page:'super-admin-user-access' },
     { icon:'fas fa-chart-bar',   label:'Reports',   page:'super-admin-reports' },
   ],
 };
 
+function hasModuleAccess(moduleName) {
+  if (!moduleName) return true;
+  if (currentUser?.role === 'super-admin') return true;
+  if (!Array.isArray(currentUser?.module_access)) return true;
+
+  return currentUser.module_access.includes(moduleName);
+}
+
+function hasPageAccess(pageId) {
+  const requiredModule = MODULE_RULES[pageId];
+  return hasModuleAccess(requiredModule);
+}
+
 function buildNav() {
   const nav = document.getElementById('sidebar-nav');
   nav.innerHTML = `<div class="nav-section-label">Navigation</div>`;
-  NAV_CONFIG[currentUser.role].forEach(item => {
+  NAV_CONFIG[currentUser.role].filter(item => hasModuleAccess(item.module)).forEach(item => {
     const btn = document.createElement('button');
     btn.className = 'nav-item';
     btn.id = `nav-${item.page}`;
@@ -395,6 +437,15 @@ function buildNav() {
 }
 
 function switchPage(pageId) {
+  if (!hasPageAccess(pageId)) {
+    showToast('You do not have access to this module');
+    const fallback = defaultPage();
+    if (fallback && fallback !== pageId) {
+      switchPage(fallback);
+    }
+    return;
+  }
+
   if (pageId !== 'member-checkin') stopCheckInScanner();
   closeMobileSidebar();
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -414,7 +465,7 @@ function switchPage(pageId) {
     'coach-dashboard':'Dashboard','coach-profile':'Profile','coach-clients':'Clients','coach-workouts':'Workouts',
     'nutrition-specialist-dashboard':'Dashboard','nutrition-specialist-profile':'Profile','nutrition-specialist-members':'Members',
     'admin-dashboard':'Dashboard','admin-profile':'Gym Profile','admin-coaches':'Coaches','admin-members':'Members','admin-inventory':'Inventory',
-    'super-admin-dashboard':'Dashboard','super-admin-gyms':'Gyms','super-admin-users':'All Users','super-admin-reports':'Reports',
+    'super-admin-dashboard':'Dashboard','super-admin-gyms':'Gyms','super-admin-users':'All Users','super-admin-user-access':'User Access','super-admin-reports':'Reports',
   };
   const titleEl = document.getElementById('topbar-title');
   if (titleEl) titleEl.textContent = titles[pageId] || 'Page';
@@ -512,6 +563,7 @@ function renderAllContent() {
   saInitDashboard();
   saInitGyms();
   saInitUsers();
+  saInitUserAccess();
   saInitReports();
 }
 
@@ -2018,6 +2070,28 @@ function saInitGyms() {
 
 /* ── Users ── */
 let saUserDebounce;
+let saAccessUsers = [];
+let saAccessModules = [];
+let saAccessModulesByRole = {};
+let saAccessSelectedUserId = null;
+
+const ROLE_MODULES_FALLBACK = {
+  user: ['explore', 'near-gyms', 'near-coaches'],
+  member: ['schedule', 'checkin', 'workouts', 'coaches', 'nutrition', 'supplements'],
+  coach: ['clients', 'workouts'],
+  'nutrition-specialist': ['members'],
+  admin: ['coaches', 'members', 'inventory'],
+  'super-admin': [],
+};
+
+function getRoleModuleKeys(role) {
+  if (Array.isArray(saAccessModulesByRole[role])) {
+    return saAccessModulesByRole[role];
+  }
+
+  return ROLE_MODULES_FALLBACK[role] || [];
+}
+
 function saInitUsers() {
   if (!document.getElementById('sa-users-table-wrap')) return;
   saLoadUsers();
@@ -2025,6 +2099,146 @@ function saInitUsers() {
   const roleEl   = document.getElementById('sa-user-role-filter');
   if (searchEl) searchEl.addEventListener('input', () => { clearTimeout(saUserDebounce); saUserDebounce = setTimeout(saLoadUsers, 300); });
   if (roleEl)   roleEl.addEventListener('change', saLoadUsers);
+}
+
+/* ── User Access ── */
+async function saInitUserAccess() {
+  const usersList = document.getElementById('sa-access-users-list');
+  if (!usersList) return;
+
+  const searchEl = document.getElementById('sa-access-user-search');
+  if (searchEl) {
+    searchEl.addEventListener('input', () => {
+      saRenderAccessUsersList(searchEl.value || '');
+    });
+  }
+
+  try {
+    const [usersRes, modulesRes] = await Promise.all([
+      fetch('../super-admin/users/data?role=all', { headers: { 'X-Requested-With': 'XMLHttpRequest' } }),
+      fetch('../super-admin/modules', { headers: { 'X-Requested-With': 'XMLHttpRequest' } }),
+    ]);
+
+    const usersPayload = usersRes.ok ? await usersRes.json() : { users: [] };
+    const modulesPayload = modulesRes.ok ? await modulesRes.json() : { modules: [], modules_by_role: {} };
+
+    saAccessUsers = Array.isArray(usersPayload.users) ? usersPayload.users : [];
+    saAccessModules = Array.isArray(modulesPayload.modules) ? modulesPayload.modules : [];
+    saAccessModulesByRole = (modulesPayload.modules_by_role && typeof modulesPayload.modules_by_role === 'object')
+      ? modulesPayload.modules_by_role
+      : ROLE_MODULES_FALLBACK;
+
+    saRenderAccessUsersList('');
+  } catch (error) {
+    usersList.innerHTML = '<div class="muted" style="padding:1rem;text-align:center">Failed to load access data</div>';
+  }
+}
+
+function saRenderAccessUsersList(search) {
+  const listEl = document.getElementById('sa-access-users-list');
+  if (!listEl) return;
+
+  const q = String(search || '').trim().toLowerCase();
+  const filtered = saAccessUsers.filter(u => {
+    if (!q) return true;
+    return String(u.name || '').toLowerCase().includes(q) || String(u.email || '').toLowerCase().includes(q);
+  });
+
+  if (!filtered.length) {
+    listEl.innerHTML = '<div class="muted" style="padding:1rem;text-align:center">No users found</div>';
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(u => {
+    const isActive = saAccessSelectedUserId === u.id;
+    return `<button class="sa-access-user-item ${isActive ? 'active' : ''}" onclick="saSelectAccessUser(${u.id})">
+      <div class="sa-access-user-main">${escHtml(u.name)}</div>
+      <div class="sa-access-user-sub">${escHtml(u.email)} · ${escHtml(u.role)}</div>
+    </button>`;
+  }).join('');
+
+  if (saAccessSelectedUserId === null && filtered.length) {
+    saSelectAccessUser(filtered[0].id);
+  }
+}
+
+function saSelectAccessUser(userId) {
+  saAccessSelectedUserId = userId;
+  const selected = saAccessUsers.find(u => u.id === userId);
+  if (!selected) return;
+
+  const selectedEl = document.getElementById('sa-access-selected-user');
+  const modulesEl = document.getElementById('sa-access-modules-list');
+  if (!modulesEl) return;
+
+  if (selectedEl) {
+    selectedEl.textContent = `Editing access for ${selected.name} (${selected.role})`;
+  }
+
+  const assigned = Array.isArray(selected.module_access) ? selected.module_access : [];
+  const isProtected = selected.role === 'super-admin';
+  const roleModuleKeys = getRoleModuleKeys(selected.role);
+  const roleModules = saAccessModules.filter(module => roleModuleKeys.includes(module.key));
+
+  modulesEl.innerHTML = roleModules.length
+    ? roleModules.map(module => `
+      <label class="sa-access-module-item ${isProtected ? 'disabled' : ''}">
+        <input type="checkbox" value="${escHtml(module.key)}"
+          ${assigned.includes(module.key) ? 'checked' : ''}
+          ${isProtected ? 'disabled' : ''}>
+        <div>
+          <div class="sa-access-module-title">${escHtml(module.label)}</div>
+          <div class="sa-access-module-key">${escHtml(module.key)}</div>
+        </div>
+      </label>
+    `).join('')
+    : '<div class="muted">No configurable modules for this role</div>';
+
+  saRenderAccessUsersList(document.getElementById('sa-access-user-search')?.value || '');
+}
+
+async function saSaveSelectedUserModules() {
+  if (!saAccessSelectedUserId) {
+    showToast('Select a user first');
+    return;
+  }
+
+  const selected = saAccessUsers.find(u => u.id === saAccessSelectedUserId);
+  if (!selected || selected.role === 'super-admin') {
+    showToast('Super admin access cannot be changed');
+    return;
+  }
+
+  const checked = Array.from(document.querySelectorAll('#sa-access-modules-list input[type="checkbox"]:checked'))
+    .map(el => el.value);
+  const allowedModules = getRoleModuleKeys(selected.role);
+  const filteredChecked = checked.filter(moduleKey => allowedModules.includes(moduleKey));
+
+  const token = document.querySelector('meta[name="csrf-token"]')?.content || window._csrfToken || '';
+
+  try {
+    const response = await fetch(`../super-admin/users/${saAccessSelectedUserId}/modules`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': token,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify({ modules: filteredChecked }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.message || 'Failed to save access');
+    }
+
+    const idx = saAccessUsers.findIndex(u => u.id === saAccessSelectedUserId);
+    if (idx >= 0) saAccessUsers[idx].module_access = filteredChecked;
+
+    showToast(payload.message || 'Access updated');
+  } catch (error) {
+    showToast(error?.message || 'Failed to save access');
+  }
 }
 
 function saLoadUsers() {
@@ -2053,11 +2267,11 @@ function saRenderUsersTable(users) {
       ${users.map(u => `<tr>
         <td>${escHtml(u.name)}</td>
         <td>${escHtml(u.email)}</td>
-        <td><select class="sa-role-select" onchange="saChangeUserRole(${u.id},this.value)">
+        <td>${u.role === 'super-admin' ? '<span class="badge badge-purple">super-admin</span>' : `<select class="sa-role-select" onchange="saChangeUserRole(${u.id},this.value)">
           ${roles.map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('')}
-        </select></td>
-        <td>${new Date(u.created_at).toLocaleDateString()}</td>
-        <td><button class="btn-danger-sm" onclick="saDeleteUser(${u.id},'${escHtml(u.name).replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button></td>
+        </select>`}</td>
+        <td>${escHtml(u.joined || '—')}</td>
+        <td>${u.role === 'super-admin' ? '<span class="muted">Protected</span>' : `<button class="btn-danger-sm" onclick="saDeleteUser(${u.id},'${escHtml(u.name).replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>`}</td>
       </tr>`).join('')}
     </tbody>
   </table></div>`;
@@ -2070,6 +2284,23 @@ function saChangeUserRole(userId, newRole) {
     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
     body: JSON.stringify({ role: newRole })
   }).then(r => r.json()).then(d => { showToast(d.message || 'Role updated'); }).catch(() => showToast('Failed to update role'));
+}
+
+function saToggleModule(userId, moduleName, enabled) {
+  const token = document.querySelector('meta[name="csrf-token"]')?.content || window._csrfToken || '';
+  const modules = enabled ? [moduleName] : [];
+
+  fetch(`../super-admin/users/${userId}/modules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+    body: JSON.stringify({ modules })
+  }).then(r => r.json()).then(d => {
+    showToast(d.message || 'Module access updated');
+    saLoadUsers();
+  }).catch(() => {
+    showToast('Failed to update module access');
+    saLoadUsers();
+  });
 }
 
 function saDeleteUser(userId, name) {
